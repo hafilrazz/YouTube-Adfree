@@ -79,16 +79,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Premium" },
-      { name: "description", content: "Watch trending videos and listen to music." },
+      { title: "Youtube — Trending videos right now" },
+      { name: "description", content: "Watch what's trending today on YouTube — music, gaming, news, sports and more, streamed straight from the source." },
       { name: "theme-color", content: "#FF0000" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: "Premium" },
-      { property: "og:title", content: "Premium" },
-      { property: "og:description", content: "Watch trending videos and listen to music." },
+      { property: "og:title", content: "Youtube — Trending videos right now" },
+      { property: "og:description", content: "Watch what's trending today on YouTube — music, gaming, news, sports and more, streamed straight from the source." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
 
+      { name: "twitter:title", content: "Youtube — Trending videos right now" },
+      { name: "twitter:description", content: "Watch what's trending today on YouTube — music, gaming, news, sports and more, streamed straight from the source." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/4dd3fa93-b404-42e9-ba66-ea4ba850f8da" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/4dd3fa93-b404-42e9-ba66-ea4ba850f8da" },
     ],
     links: [
       {

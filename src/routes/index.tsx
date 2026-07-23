@@ -12,10 +12,10 @@ import { useRecent, useVideosByIds } from "@/lib/user-data";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Premium — Trending videos right now" },
+      { title: "Youtube — Trending videos right now" },
       { name: "description", content: "Watch what's trending today on YouTube — music, gaming, news, sports and more, streamed straight from the source." },
-      { property: "og:title", content: "Premium" },
-      { property: "og:description", content: "Watch what's trending today on YouTube." },
+      { property: "og:title", content: "Youtube — Trending videos right now" },
+      { property: "og:description", content: "Watch what's trending today on YouTube — music, gaming, news, sports and more, streamed straight from the source." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
