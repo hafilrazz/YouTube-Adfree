@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { User, Check, Plus, Pencil, Trash2, X, Camera } from "lucide-react";
+import { User, Check, Plus, Pencil, Trash2, X, Camera, Moon, Sun } from "lucide-react";
 import { useProfiles, MAX_PROFILES, type Profile } from "@/lib/profiles";
+import { useTheme } from "@/lib/use-theme";
 
 function Avatar({ profile, size = 32 }: { profile: Profile | undefined; size?: number }) {
   const s = { width: size, height: size };
