@@ -104,7 +104,9 @@ function SearchBox() {
     navigate({ to: "/search", search: { q: term } });
   };
 
+  return (
     <div ref={wrapRef} className="flex-1 max-w-2xl mx-2 sm:mx-4 flex items-center relative">
+
 
       <div className="flex flex-1">
         <input
