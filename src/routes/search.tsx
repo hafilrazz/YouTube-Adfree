@@ -40,6 +40,11 @@ function SearchPage() {
   const { q, page, prev, n } = Route.useSearch();
   const navigate = Route.useNavigate();
   const searchFn = useServerFn(searchYouTube);
+  const { record: recordSearch } = useSearchHistory();
+
+  useEffect(() => {
+    if (q.trim() && n === 1) recordSearch(q);
+  }, [q, n, recordSearch]);
 
   const { data, isFetching, error } = useQuery({
     queryKey: ["yt-search-page", q, page],
