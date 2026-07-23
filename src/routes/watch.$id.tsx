@@ -48,6 +48,7 @@ export const Route = createFileRoute("/watch/$id")({
 function Watch() {
   const { video, related } = Route.useLoaderData();
   const [subscribed, setSubscribed] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
   const likes = useLikes();
   const playlist = usePlaylist();
   const { record } = useRecent();
@@ -57,9 +58,10 @@ function Watch() {
   const liked = likes.isLiked(video.id);
   const saved = playlist.isSaved(video.id);
 
+
   return (
     <FakeTubeLayout>
-      <div className="flex flex-col xl:flex-row gap-6 max-w-[1600px] mx-auto">
+      <div className="flex flex-col xl:flex-row gap-6 w-full min-w-0">
         <div className="flex-1 min-w-0">
           <div className="aspect-video rounded-xl overflow-hidden bg-black">
             <iframe
@@ -72,7 +74,8 @@ function Watch() {
             />
           </div>
 
-          <h1 className="mt-4 text-xl font-bold">{video.title}</h1>
+          <h1 className="mt-4 text-lg sm:text-xl font-bold break-words">{video.title}</h1>
+
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <img src={video.channelAvatar} className="h-10 w-10 rounded-full" alt="" />
@@ -125,25 +128,36 @@ function Watch() {
           </div>
           <div className="mt-4 p-3 rounded-xl bg-neutral-100">
             <p className="text-sm font-semibold">{video.views} views · {video.posted}</p>
-            <p className="mt-2 text-sm whitespace-pre-wrap">{video.description}</p>
+            <p className={`mt-2 text-sm whitespace-pre-wrap break-words ${descExpanded ? "" : "line-clamp-2"}`}>
+              {video.description}
+            </p>
+            {video.description && video.description.length > 120 && (
+              <button
+                onClick={() => setDescExpanded((v) => !v)}
+                className="mt-2 text-sm font-semibold hover:underline"
+              >
+                {descExpanded ? "Show less" : "Show more"}
+              </button>
+            )}
           </div>
         </div>
-        <aside className="xl:w-96 flex flex-col gap-3">
+        <aside className="xl:w-96 flex flex-col gap-3 min-w-0">
           <h2 className="font-semibold text-sm text-neutral-700">Up next</h2>
           {related.map((v: Video) => (
             <Link to="/watch/$id" params={{ id: v.id }} key={v.id} className="flex gap-2 group">
-              <div className="relative w-40 sm:w-40 aspect-video rounded-lg overflow-hidden shrink-0 bg-neutral-200">
+              <div className="relative w-36 sm:w-40 aspect-video rounded-lg overflow-hidden shrink-0 bg-neutral-200">
                 <img src={v.thumbnail} alt={v.title} className="h-full w-full object-cover" />
                 <span className={`absolute bottom-1 right-1 px-1 text-[10px] rounded ${v.duration === "LIVE" ? "bg-red-600 text-white" : "bg-black/80 text-white"}`}>{v.duration}</span>
               </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold line-clamp-2 leading-snug">{v.title}</h3>
-                <p className="text-xs text-neutral-600 mt-1">{v.channel}</p>
-                <p className="text-xs text-neutral-600">{v.views} views · {v.posted}</p>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold line-clamp-2 leading-snug break-words">{v.title}</h3>
+                <p className="text-xs text-neutral-600 mt-1 truncate">{v.channel}</p>
+                <p className="text-xs text-neutral-600 truncate">{v.views} views · {v.posted}</p>
               </div>
             </Link>
           ))}
         </aside>
+
 
       </div>
     </FakeTubeLayout>
