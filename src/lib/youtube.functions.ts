@@ -378,8 +378,34 @@ export const getTrending = createServerFn({ method: "GET" })
       console.warn("Invidious trending failed:", (e as Error).message);
     }
 
+    // Tertiary: YouTube Data API
+    try {
+      if (isTrending) {
+        const j = await ytFetch<{ items?: YTVideoItem[] }>(
+          `/videos?part=snippet,contentDetails,statistics&chart=mostPopular&maxResults=32&regionCode=${encodeURIComponent(data.region)}`,
+        );
+        const videos = (j.items ?? []).map(ytVideoToVideo).filter((v): v is Video => Boolean(v));
+        if (videos.length) return videos;
+      } else {
+        const s = await ytFetch<{ items?: YTSearchItem[] }>(
+          `/search?part=snippet&type=video&maxResults=32&q=${encodeURIComponent(data.category)}`,
+        );
+        const ids = (s.items ?? []).map((it) => it.id?.videoId).filter((x): x is string => Boolean(x));
+        if (ids.length) {
+          const d = await ytFetch<{ items?: YTVideoItem[] }>(
+            `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(ids.join(","))}`,
+          );
+          const videos = (d.items ?? []).map(ytVideoToVideo).filter((v): v is Video => Boolean(v));
+          if (videos.length) return videos;
+        }
+      }
+    } catch (e) {
+      console.warn("YT API trending failed:", (e as Error).message);
+    }
+
     return [];
   });
+
 
 // ================== Search ==================
 
