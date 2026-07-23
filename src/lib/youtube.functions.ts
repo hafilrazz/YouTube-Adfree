@@ -288,20 +288,18 @@ export const getShorts = createServerFn({ method: "GET" })
   });
 
 export const getRecommendedFromLikes = createServerFn({ method: "GET" })
-  .inputValidator((d: { ids: string[] }) => ({
+  .inputValidator((d: { ids?: string[]; queries?: string[] }) => ({
     ids: (Array.isArray(d?.ids) ? d.ids : []).slice(0, 5).map(String).filter(Boolean),
+    queries: (Array.isArray(d?.queries) ? d.queries : []).slice(0, 5).map((q) => String(q).slice(0, 80)).filter(Boolean),
   }))
   .handler(async ({ data }): Promise<Video[]> => {
-    if (!data.ids.length) return [];
+    if (!data.ids.length && !data.queries.length) return [];
     setResponseHeader("cache-control", "private, max-age=300, stale-while-revalidate=1800");
 
     // Fetch liked videos to get their channelIds, titles, tags
-    const seed = await yt("videos", {
-      part: "snippet",
-      id: data.ids.join(","),
-    });
-    const seedItems = seed.items ?? [];
-    if (!seedItems.length) return [];
+    const seedItems = data.ids.length
+      ? ((await yt("videos", { part: "snippet", id: data.ids.join(",") })).items ?? [])
+      : [];
 
     const channelIds = Array.from(
       new Set(seedItems.map((it) => it.snippet.channelId).filter((x): x is string => Boolean(x))),
@@ -314,18 +312,17 @@ export const getRecommendedFromLikes = createServerFn({ method: "GET" })
       "were","this","that","by","at","from","how","why","what","official","video",
       "feat","ft","vs","new","best","top","full","hd","4k","live","2024","2025","2026",
     ]);
+    const titleQueries = seedItems.map((it) => {
+      const words = it.snippet.title
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !stop.has(w));
+      return words.slice(0, 4).join(" ");
+    });
     const queries = Array.from(
-      new Set(
-        seedItems.map((it) => {
-          const words = it.snippet.title
-            .toLowerCase()
-            .replace(/[^\p{L}\p{N}\s]/gu, " ")
-            .split(/\s+/)
-            .filter((w) => w.length > 2 && !stop.has(w));
-          return words.slice(0, 4).join(" ");
-        }).filter(Boolean),
-      ),
-    ).slice(0, 4);
+      new Set([...titleQueries, ...data.queries].map((q) => q.trim()).filter(Boolean)),
+    ).slice(0, 6);
 
     // In parallel: recent uploads from each seed channel + keyword searches across YouTube
     const [channelResults, keywordResults] = await Promise.all([

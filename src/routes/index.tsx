@@ -6,7 +6,7 @@ import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { VideoCard } from "@/components/faketube/VideoCard";
 import type { Video } from "@/lib/faketube-data";
 import { getRecommendedFromLikes } from "@/lib/youtube.functions";
-import { useLikes, useRecent, useVideosByIds } from "@/lib/user-data";
+import { useLikes, useRecent, useSearchHistory, useVideosByIds } from "@/lib/user-data";
 
 
 export const Route = createFileRoute("/")({
@@ -28,12 +28,15 @@ function Home() {
   const { data: recent = [] } = useVideosByIds(recentIds.slice(0, 6));
 
   const { ids: likedIds } = useLikes();
+  const { queries: searchQueries } = useSearchHistory();
   const recFn = useServerFn(getRecommendedFromLikes);
   const seedIds = likedIds.slice(0, 5);
+  const seedQueries = searchQueries.slice(0, 5);
+  const hasSignal = seedIds.length > 0 || seedQueries.length > 0;
   const { data: recommended = [], isLoading, error } = useQuery<Video[]>({
-    queryKey: ["recommended", seedIds.join(",")],
-    queryFn: () => recFn({ data: { ids: seedIds } }),
-    enabled: seedIds.length > 0,
+    queryKey: ["recommended", seedIds.join(","), seedQueries.join("|")],
+    queryFn: () => recFn({ data: { ids: seedIds, queries: seedQueries } }),
+    enabled: hasSignal,
     staleTime: 30 * 60_000,
     gcTime: 60 * 60_000,
   });
@@ -58,12 +61,16 @@ function Home() {
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Recommended for you</h2>
-        {seedIds.length > 0 && <span className="text-xs text-neutral-500">Based on videos you liked</span>}
+        {hasSignal && (
+          <span className="text-xs text-neutral-500">
+            Based on your {seedIds.length > 0 && "likes"}{seedIds.length > 0 && seedQueries.length > 0 && " & "}{seedQueries.length > 0 && "searches"}
+          </span>
+        )}
       </div>
 
-      {seedIds.length === 0 ? (
+      {!hasSignal ? (
         <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 text-center text-sm text-neutral-500">
-          Like some videos to get personalized recommendations here.{" "}
+          Like some videos or search for something to get personalized recommendations here.{" "}
           <Link to="/trending" className="text-blue-600">Browse trending</Link> to get started.
         </div>
       ) : error ? (

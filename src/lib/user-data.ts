@@ -9,7 +9,9 @@ const PLAYLIST_KEY = "faketube:playlist";
 const RECENT_KEY = "faketube:recent";
 const COMPLETED_KEY = "faketube:completed";
 const PROGRESS_KEY = "faketube:progress";
+const SEARCH_KEY = "faketube:searches";
 const RECENT_MAX = 30;
+const SEARCH_MAX = 20;
 const COMPLETE_THRESHOLD = 0.9;
 
 
@@ -85,6 +87,18 @@ export function useCompleted() {
   const [ids, setIds] = useIdList(COMPLETED_KEY);
   const clear = useCallback(() => writeSet(COMPLETED_KEY, []), []);
   return { ids, clear, setIds };
+}
+
+export function useSearchHistory() {
+  const [queries, setQueries] = useIdList(SEARCH_KEY);
+  const record = useCallback((q: string) => {
+    const clean = q.trim().slice(0, 80);
+    if (!clean) return;
+    const next = [clean, ...readSet(SEARCH_KEY).filter((x) => x.toLowerCase() !== clean.toLowerCase())].slice(0, SEARCH_MAX);
+    writeSet(SEARCH_KEY, next);
+  }, []);
+  const clear = useCallback(() => writeSet(SEARCH_KEY, []), []);
+  return { queries, record, clear, setQueries };
 }
 
 type ProgressMap = Record<string, { time: number; duration: number; updated: number }>;
