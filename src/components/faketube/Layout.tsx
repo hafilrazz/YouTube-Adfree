@@ -37,7 +37,9 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
             <div className="w-0 h-0 border-l-[8px] border-l-white border-y-[5px] border-y-transparent ml-1" />
           </div>
           <span className="text-xl font-bold tracking-tight">FakeTube</span>
+          <span className="ml-1 text-xs font-semibold tracking-widest text-neutral-500 uppercase">Premium</span>
         </Link>
+
       </div>
       <div className="flex-1 max-w-2xl mx-4 hidden sm:flex items-center">
         <div className="flex flex-1">
