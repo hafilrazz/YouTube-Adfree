@@ -21,7 +21,7 @@ export const Route = createFileRoute("/playlist")({
 
 function PlaylistPage() {
   const { ids, toggle } = usePlaylist();
-  const videos = videosByIds(ids);
+  const { data: videos = [] } = useVideosByIds(ids);
   return (
     <FakeTubeLayout>
       <div className="flex items-center gap-3 mb-6">
