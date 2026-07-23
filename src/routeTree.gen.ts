@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as ReelsRouteImport } from './routes/reels'
 import { Route as PlaylistRouteImport } from './routes/playlist'
@@ -21,6 +22,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as MusicPlaylistRouteImport } from './routes/music.playlist'
 
+const TrendingRoute = TrendingRouteImport.update({
+  id: '/trending',
+  path: '/trending',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/playlist': typeof PlaylistRoute
   '/reels': typeof ReelsRoute
   '/search': typeof SearchRoute
+  '/trending': typeof TrendingRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
 }
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/playlist': typeof PlaylistRoute
   '/reels': typeof ReelsRoute
   '/search': typeof SearchRoute
+  '/trending': typeof TrendingRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/playlist': typeof PlaylistRoute
   '/reels': typeof ReelsRoute
   '/search': typeof SearchRoute
+  '/trending': typeof TrendingRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
 }
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/playlist'
     | '/reels'
     | '/search'
+    | '/trending'
     | '/music/playlist'
     | '/watch/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/playlist'
     | '/reels'
     | '/search'
+    | '/trending'
     | '/music/playlist'
     | '/watch/$id'
   id:
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/playlist'
     | '/reels'
     | '/search'
+    | '/trending'
     | '/music/playlist'
     | '/watch/$id'
   fileRoutesById: FileRoutesById
@@ -169,11 +181,19 @@ export interface RootRouteChildren {
   PlaylistRoute: typeof PlaylistRoute
   ReelsRoute: typeof ReelsRoute
   SearchRoute: typeof SearchRoute
+  TrendingRoute: typeof TrendingRoute
   WatchIdRoute: typeof WatchIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/trending': {
+      id: '/trending'
+      path: '/trending'
+      fullPath: '/trending'
+      preLoaderRoute: typeof TrendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/search': {
       id: '/search'
       path: '/search'
@@ -274,6 +294,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlaylistRoute: PlaylistRoute,
   ReelsRoute: ReelsRoute,
   SearchRoute: SearchRoute,
+  TrendingRoute: TrendingRoute,
   WatchIdRoute: WatchIdRoute,
 }
 export const routeTree = rootRouteImport
