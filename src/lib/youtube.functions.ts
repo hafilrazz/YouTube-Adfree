@@ -96,6 +96,94 @@ async function yt(path: string, params: Record<string, string>): Promise<{ items
   return res.json();
 }
 
+// ================== Piped (primary source) ==================
+// Piped is an open-source YouTube proxy. Free, no API key, no daily quota.
+// We hit multiple public instances and fall back to the official API on failure.
+
+const PIPED_INSTANCES = [
+  "https://pipedapi.kavin.rocks",
+  "https://pipedapi.reallyaweso.me",
+  "https://api.piped.projectsegfau.lt",
+  "https://pipedapi.adminforge.de",
+  "https://pipedapi.leptons.xyz",
+];
+
+interface PipedItem {
+  url?: string;
+  type?: string;
+  title?: string;
+  thumbnail?: string;
+  uploaderName?: string;
+  uploaderUrl?: string;
+  uploaderAvatar?: string;
+  uploadedDate?: string;
+  uploaded?: number;
+  duration?: number;
+  views?: number;
+  shortDescription?: string;
+  isShort?: boolean;
+}
+
+function pipedIdFromUrl(u: string | undefined): string {
+  if (!u) return "";
+  const m = u.match(/[?&]v=([\w-]{6,})/);
+  return m ? m[1] : "";
+}
+
+function formatSeconds(sec: number): string {
+  if (!sec || sec < 0) return "LIVE";
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
+function pipedToVideo(it: PipedItem): Video | null {
+  const id = pipedIdFromUrl(it.url);
+  if (!id) return null;
+  const posted = it.uploadedDate
+    ? it.uploadedDate
+    : it.uploaded
+      ? timeAgo(new Date(it.uploaded).toISOString())
+      : "";
+  return {
+    id,
+    title: it.title ?? "",
+    channel: it.uploaderName ?? "",
+    channelAvatar: it.uploaderAvatar || avatar(it.uploaderName ?? id),
+    views: typeof it.views === "number" && it.views >= 0 ? formatViews(String(it.views)) : "—",
+    posted,
+    duration: formatSeconds(it.duration ?? 0),
+    thumbnail: it.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    description: it.shortDescription ?? "",
+  };
+}
+
+async function piped<T>(path: string): Promise<T> {
+  let lastErr: unknown = null;
+  for (const base of PIPED_INSTANCES) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`${base}${path}`, {
+        headers: { "user-agent": "Mozilla/5.0" },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        lastErr = new Error(`${base} → ${res.status}`);
+        continue;
+      }
+      return (await res.json()) as T;
+    } catch (e) {
+      lastErr = e;
+      continue;
+    }
+  }
+  throw lastErr ?? new Error("All Piped instances failed");
+}
+
 export const getTrending = createServerFn({ method: "GET" })
   .inputValidator((d: { category?: string; region?: string }) => ({
     category: d?.category ?? "All",
@@ -103,32 +191,63 @@ export const getTrending = createServerFn({ method: "GET" })
   }))
   .handler(async ({ data }): Promise<Video[]> => {
     setResponseHeader("cache-control", "public, max-age=300, s-maxage=600, stale-while-revalidate=1800");
+
+    // Primary: Piped trending
     if (data.category === "All" || data.category === "Trending") {
-      const j = await yt("videos", {
-        part: "snippet,contentDetails,statistics",
-        chart: "mostPopular",
-        regionCode: data.region,
-        maxResults: "32",
-      });
-      return (j.items ?? []).map(toVideo);
+      try {
+        const items = await piped<PipedItem[]>(`/trending?region=${encodeURIComponent(data.region)}`);
+        const videos = items.map(pipedToVideo).filter((v): v is Video => Boolean(v));
+        if (videos.length) return videos.slice(0, 32);
+      } catch (e) {
+        console.warn("Piped trending failed, falling back to YouTube API:", (e as Error).message);
+      }
+    } else {
+      // Category → treat as a Piped search sorted by relevance
+      try {
+        const res = await piped<{ items?: PipedItem[] }>(
+          `/search?q=${encodeURIComponent(data.category)}&filter=videos`,
+        );
+        const videos = (res.items ?? [])
+          .map(pipedToVideo)
+          .filter((v): v is Video => Boolean(v));
+        if (videos.length) return videos.slice(0, 32);
+      } catch (e) {
+        console.warn("Piped category search failed, falling back:", (e as Error).message);
+      }
     }
-    const s = await yt("search", {
-      part: "snippet",
-      q: data.category,
-      type: "video",
-      maxResults: "32",
-      order: "viewCount",
-      regionCode: data.region,
-    });
-    const ids = (s.items ?? [])
-      .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
-      .filter((x): x is string => Boolean(x));
-    if (!ids.length) return [];
-    const v = await yt("videos", {
-      part: "snippet,contentDetails,statistics",
-      id: ids.join(","),
-    });
-    return (v.items ?? []).map(toVideo);
+
+    // Fallback: official YouTube Data API
+    try {
+      if (data.category === "All" || data.category === "Trending") {
+        const j = await yt("videos", {
+          part: "snippet,contentDetails,statistics",
+          chart: "mostPopular",
+          regionCode: data.region,
+          maxResults: "32",
+        });
+        return (j.items ?? []).map(toVideo);
+      }
+      const s = await yt("search", {
+        part: "snippet",
+        q: data.category,
+        type: "video",
+        maxResults: "32",
+        order: "viewCount",
+        regionCode: data.region,
+      });
+      const ids = (s.items ?? [])
+        .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
+        .filter((x): x is string => Boolean(x));
+      if (!ids.length) return [];
+      const v = await yt("videos", {
+        part: "snippet,contentDetails,statistics",
+        id: ids.join(","),
+      });
+      return (v.items ?? []).map(toVideo);
+    } catch (e) {
+      console.error("Trending fallback failed", e);
+      return [];
+    }
   });
 
 
@@ -142,16 +261,39 @@ export const searchYouTube = createServerFn({ method: "GET" })
     if (!data.q.trim()) return { items: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=1800, stale-while-revalidate=3600");
 
+    // Primary: Piped search (no quota)
+    try {
+      const path = data.pageToken
+        ? `/nextpage/search?nextpage=${encodeURIComponent(data.pageToken)}&q=${encodeURIComponent(data.q)}&filter=videos`
+        : `/search?q=${encodeURIComponent(data.q)}&filter=videos`;
+      const res = await piped<{ items?: PipedItem[]; nextpage?: string | null }>(path);
+      const items = (res.items ?? [])
+        .filter((it) => !it.type || it.type === "stream")
+        .map(pipedToVideo)
+        .filter((v): v is Video => Boolean(v))
+        .slice(0, data.limit);
+      if (items.length) {
+        return {
+          items,
+          nextPageToken: res.nextpage ? String(res.nextpage) : undefined,
+        };
+      }
+    } catch (e) {
+      console.warn("Piped search failed, falling back to YouTube API:", (e as Error).message);
+    }
+
+    // Fallback: official YouTube Data API
     const params: Record<string, string> = {
       part: "snippet",
       q: data.q,
       type: "video",
       maxResults: String(data.limit),
     };
-    if (data.pageToken) params.pageToken = data.pageToken;
+    // pageToken from Piped is not compatible with YT API — only pass when it looks like a YT token
+    if (data.pageToken && !data.pageToken.startsWith("{")) params.pageToken = data.pageToken;
     const url = new URL(`${API}/search`);
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-    url.searchParams.set("key", process.env.GOOGLE_API_KEY!);
+    url.searchParams.set("key", process.env.GOOGLE_API_KEY ?? "");
     const res = await fetch(url.toString());
     if (!res.ok) {
       const body = await res.text().catch(() => "");
