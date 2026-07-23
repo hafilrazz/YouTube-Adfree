@@ -41,16 +41,16 @@ export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
 
 function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-neutral-200 h-14 flex items-center justify-between px-2 sm:px-4 gap-2">
-      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-neutral-200 h-14 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center px-1.5 gap-1 sm:flex sm:justify-between sm:px-4 sm:gap-2">
+      <div className="flex min-w-0 items-center gap-1 sm:gap-4 shrink-0">
         <button onClick={onToggleSidebar} className="p-2 rounded-full hover:bg-neutral-100" aria-label="Toggle sidebar">
           <Menu className="h-5 w-5" />
         </button>
-        <Link to="/" className="flex items-center gap-1">
+        <Link to="/" className="flex min-w-0 items-center gap-1">
           <div className="flex items-center justify-center h-6 w-9 rounded-md bg-red-600">
             <div className="w-0 h-0 border-l-[8px] border-l-white border-y-[5px] border-y-transparent ml-1" />
           </div>
-          <span className="text-lg sm:text-xl font-bold tracking-tight">Premium</span>
+          <span className="max-w-20 truncate text-base sm:max-w-none sm:text-xl font-bold tracking-tight">Premium</span>
         </Link>
       </div>
       <SearchBox />
@@ -115,10 +115,10 @@ function SearchBox() {
   };
 
   return (
-    <div ref={wrapRef} className="flex-1 max-w-2xl mx-2 sm:mx-4 flex items-center relative">
+    <div ref={wrapRef} className="min-w-0 w-full flex-1 max-w-2xl mx-1 sm:mx-4 flex items-center relative">
 
 
-      <div className="flex flex-1">
+      <div className="flex min-w-0 flex-1">
         <input
           value={q}
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
@@ -135,12 +135,12 @@ function SearchBox() {
             else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + results.length) % results.length); }
             else if (e.key === "Escape") setOpen(false);
           }}
-          className="flex-1 min-w-0 border border-neutral-300 rounded-l-full px-3 sm:px-4 py-2 text-sm outline-none focus:border-blue-500"
+          className="flex-1 min-w-0 border border-neutral-300 rounded-l-full px-2.5 sm:px-4 py-2 text-sm outline-none focus:border-blue-500"
           placeholder="Search"
         />
         <button
           onClick={submitSearch}
-          className="px-4 sm:px-5 border border-l-0 border-neutral-300 rounded-r-full bg-neutral-50 hover:bg-neutral-100"
+          className="shrink-0 px-3 sm:px-5 border border-l-0 border-neutral-300 rounded-r-full bg-neutral-50 hover:bg-neutral-100"
           aria-label="Search"
         >
           <Search className="h-4 w-4" />
