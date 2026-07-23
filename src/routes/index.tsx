@@ -1,24 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { FakeTubeLayout } from "@/components/faketube/Layout";
+import { VideoCard } from "@/components/faketube/VideoCard";
+import { VIDEOS } from "@/lib/faketube-data";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "FakeTube — Watch anything, verify nothing" },
+      { name: "description", content: "FakeTube is a totally-not-real video sharing platform. Browse, watch and pretend-subscribe." },
+      { property: "og:title", content: "FakeTube" },
+      { property: "og:description", content: "A YouTube-style clone for demos and fun." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: Home,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function Home() {
+  const [category, setCategory] = useState("All");
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <FakeTubeLayout activeCategory={category} onCategoryChange={setCategory}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+        {VIDEOS.map((v) => (
+          <VideoCard key={v.id} video={v} />
+        ))}
+      </div>
+    </FakeTubeLayout>
   );
 }
