@@ -138,15 +138,21 @@ function SearchBox() {
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={(e) => {
+            const total = suggestCount + results.length;
             if (e.key === "Enter") {
               e.preventDefault();
-              if (open && results.length > 0 && active > 0) go(results[active].id);
-              else submitSearch();
+              if (open && active > 0 && active <= suggestCount) {
+                runSearch(suggestions[active - 1]);
+              } else if (open && active > suggestCount && results.length > 0) {
+                go(results[active - suggestCount - 1].id);
+              } else {
+                submitSearch();
+              }
               return;
             }
-            if (!open || results.length === 0) return;
-            if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => (a + 1) % results.length); }
-            else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + results.length) % results.length); }
+            if (!open || total === 0) return;
+            if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => (a + 1) % (total + 1)); }
+            else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + total + 1) % (total + 1)); }
             else if (e.key === "Escape") setOpen(false);
           }}
           className="flex-1 min-w-0 border border-neutral-300 rounded-l-full px-2.5 sm:px-4 py-2 text-sm outline-none focus:border-blue-500"
