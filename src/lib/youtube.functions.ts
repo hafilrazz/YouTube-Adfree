@@ -62,12 +62,10 @@ function stripHtml(s: string): string {
 // ================== Piped (primary source) ==================
 
 const PIPED_INSTANCES = [
-  "https://pipedapi.kavin.rocks",
-  "https://pipedapi.reallyaweso.me",
-  "https://api.piped.projectsegfau.lt",
-  "https://pipedapi.adminforge.de",
-  "https://pipedapi.leptons.xyz",
+  "https://api.piped.private.coffee",
+  "https://pipedapi.wireway.ch",
 ];
+
 
 interface PipedItem {
   url?: string;
