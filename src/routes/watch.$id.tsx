@@ -1,9 +1,10 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck, Music2, Check } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getYouTubeVideo } from "@/lib/youtube.functions";
 import { useLikes, usePlaylist, useRecent, getProgress, saveProgress } from "@/lib/user-data";
+import { useMusicVideos } from "@/lib/music-videos";
 import type { Video } from "@/lib/faketube-data";
 
 
@@ -131,12 +132,14 @@ function Watch() {
   const [descExpanded, setDescExpanded] = useState(false);
   const likes = useLikes();
   const playlist = usePlaylist();
+  const musicVids = useMusicVideos();
   const { record } = useRecent();
 
   useEffect(() => { record(video.id); }, [video.id, record]);
 
   const liked = likes.isLiked(video.id);
   const saved = playlist.isSaved(video.id);
+  const inMusic = musicVids.has(video.id);
 
 
   return (
@@ -186,6 +189,16 @@ function Watch() {
               >
                 {saved ? <BookmarkCheck className="h-4 w-4" /> : <BookmarkPlus className="h-4 w-4" />}
                 {saved ? "Saved" : "Save"}
+              </button>
+              <button
+                onClick={() => musicVids.toggle(video.id)}
+                className={`rounded-full px-4 py-2 text-sm flex items-center gap-2 ${
+                  inMusic ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-neutral-100 hover:bg-neutral-200"
+                }`}
+                title={inMusic ? "In music playlist" : "Add to music playlist"}
+              >
+                {inMusic ? <Check className="h-4 w-4" /> : <Music2 className="h-4 w-4" />}
+                {inMusic ? "In music" : "Add to music"}
               </button>
               <button className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2">
                 <Share2 className="h-4 w-4" /> Share
