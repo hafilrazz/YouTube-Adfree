@@ -190,6 +190,16 @@ function Watch() {
                 {saved ? <BookmarkCheck className="h-4 w-4" /> : <BookmarkPlus className="h-4 w-4" />}
                 {saved ? "Saved" : "Save"}
               </button>
+              <button
+                onClick={() => musicVids.toggle(video.id)}
+                className={`rounded-full px-4 py-2 text-sm flex items-center gap-2 ${
+                  inMusic ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-neutral-100 hover:bg-neutral-200"
+                }`}
+                title={inMusic ? "In music playlist" : "Add to music playlist"}
+              >
+                {inMusic ? <Check className="h-4 w-4" /> : <Music2 className="h-4 w-4" />}
+                {inMusic ? "In music" : "Add to music"}
+              </button>
               <button className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2">
                 <Share2 className="h-4 w-4" /> Share
               </button>
