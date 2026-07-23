@@ -82,6 +82,40 @@ function MusicPlaylistPage() {
           })}
         </ul>
       )}
+
+      <div className="mt-8">
+        <div className="flex items-center gap-2 mb-3">
+          <PlaySquare className="h-5 w-5" />
+          <h2 className="text-lg font-bold">Videos</h2>
+          <span className="text-sm text-neutral-500">{videos.length}</span>
+        </div>
+        {videos.length === 0 ? (
+          <div className="text-center py-10 border border-dashed rounded-2xl">
+            <p className="text-sm text-neutral-600">No videos added yet. Tap “Add to music” on any video.</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-neutral-200 border border-neutral-200 rounded-xl overflow-hidden bg-white">
+            {videos.map((v: Video) => (
+              <li key={v.id} className="flex items-center gap-3 p-2 sm:p-3 hover:bg-neutral-50">
+                <Link to="/watch/$id" params={{ id: v.id }} className="relative h-12 w-20 shrink-0 rounded overflow-hidden bg-neutral-200">
+                  <img src={v.thumbnail} alt="" className="h-full w-full object-cover" />
+                </Link>
+                <Link to="/watch/$id" params={{ id: v.id }} className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{v.title}</p>
+                  <p className="text-xs text-neutral-500 truncate">{v.channel}</p>
+                </Link>
+                <button
+                  onClick={() => musicVids.remove(v.id)}
+                  className="p-2 rounded-full hover:bg-red-50 text-red-600"
+                  aria-label="Remove"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </FakeTubeLayout>
   );
 }
