@@ -518,6 +518,56 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
       console.warn("Piped /streams failed, falling back to YouTube API:", (e as Error).message);
     }
 
+    // Secondary: Invidious /api/v1/videos/{id} — video details + recommendedVideos.
+    try {
+      const s = await invidious<{
+        title?: string;
+        description?: string;
+        descriptionHtml?: string;
+        publishedText?: string;
+        author?: string;
+        authorThumbnails?: { url: string; width: number }[];
+        lengthSeconds?: number;
+        viewCount?: number;
+        videoThumbnails?: { url: string; quality?: string; width?: number }[];
+        recommendedVideos?: InvVideoItem[];
+        liveNow?: boolean;
+      }>(`/api/v1/videos/${encodeURIComponent(data.id)}`);
+
+      const descText = (s.description ?? "")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+
+      const video: Video = {
+        id: data.id,
+        title: s.title ?? "",
+        channel: s.author ?? "",
+        channelAvatar: invAvatar(s.authorThumbnails, s.author ?? data.id),
+        views:
+          typeof s.viewCount === "number" && s.viewCount >= 0
+            ? formatViews(String(s.viewCount))
+            : "—",
+        posted: s.publishedText ?? "",
+        duration: s.liveNow ? "LIVE" : formatSeconds(s.lengthSeconds ?? 0),
+        thumbnail: invThumb(s.videoThumbnails, data.id),
+        description: descText,
+      };
+
+      const related = (s.recommendedVideos ?? [])
+        .map(invToVideo)
+        .filter((v): v is Video => Boolean(v) && v.id !== data.id)
+        .slice(0, 20);
+
+      return { video, related };
+    } catch (e) {
+      console.warn("Invidious /videos failed, falling back to YouTube API:", (e as Error).message);
+    }
+
     // Fallback: official YouTube Data API
     try {
       const v = await yt("videos", { part: "snippet,contentDetails,statistics", id: data.id });
