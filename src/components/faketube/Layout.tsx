@@ -1,7 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { Menu, Search, Mic, Video, Bell, User, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo } from "lucide-react";
+import { Menu, Search, Mic, Video, Bell, User, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo, Crown, Check } from "lucide-react";
 import { CATEGORIES } from "@/lib/faketube-data";
+import { usePremium } from "@/lib/use-premium";
+
 
 export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
   children: ReactNode;
@@ -26,8 +28,10 @@ export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
 }
 
 function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
+  const { premium } = usePremium();
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-neutral-200 h-14 flex items-center justify-between px-4">
+
       <div className="flex items-center gap-4">
         <button onClick={onToggleSidebar} className="p-2 rounded-full hover:bg-neutral-100">
           <Menu className="h-5 w-5" />
@@ -37,7 +41,9 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
             <div className="w-0 h-0 border-l-[8px] border-l-white border-y-[5px] border-y-transparent ml-1" />
           </div>
           <span className="text-xl font-bold tracking-tight">FakeTube</span>
+          <span className="ml-1 text-xs font-semibold tracking-widest text-neutral-500 uppercase">Premium</span>
         </Link>
+
       </div>
       <div className="flex-1 max-w-2xl mx-4 hidden sm:flex items-center">
         <div className="flex flex-1">
@@ -54,12 +60,24 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
         </button>
       </div>
       <div className="flex items-center gap-2">
+        <Link
+          to="/premium"
+          className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${
+            premium
+              ? "border-amber-300 bg-amber-50 text-amber-800"
+              : "border-neutral-300 hover:bg-neutral-100 text-neutral-900"
+          }`}
+        >
+          {premium ? <Check className="h-4 w-4" /> : <Crown className="h-4 w-4 text-amber-500" />}
+          {premium ? "Premium active" : "Try Premium"}
+        </Link>
         <button className="p-2 rounded-full hover:bg-neutral-100"><Video className="h-5 w-5" /></button>
         <button className="p-2 rounded-full hover:bg-neutral-100"><Bell className="h-5 w-5" /></button>
         <button className="h-8 w-8 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white">
           <User className="h-4 w-4" />
         </button>
       </div>
+
     </header>
   );
 }
