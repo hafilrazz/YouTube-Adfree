@@ -45,7 +45,7 @@ function MusicPage() {
                 className="relative h-12 w-12 shrink-0 rounded overflow-hidden group"
                 aria-label={active && isPlaying ? "Pause" : "Play"}
               >
-                <img src={t.cover} alt="" className="h-full w-full object-cover" />
+                <span className="h-full w-full flex items-center justify-center bg-gradient-to-br from-red-500 to-red-700 text-white"><ListMusic className="h-5 w-5" /></span>
                 <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
                   {active && isPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white ml-0.5" />}
                 </span>
