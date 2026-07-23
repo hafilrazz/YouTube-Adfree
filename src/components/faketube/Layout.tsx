@@ -96,6 +96,12 @@ function SearchBox() {
     setQ("");
     navigate({ to: "/watch/$id", params: { id } });
   };
+  const submitSearch = () => {
+    const term = q.trim();
+    if (!term) return;
+    setOpen(false);
+    navigate({ to: "/search", search: { q: term } });
+  };
 
   return (
     <div ref={wrapRef} className="flex-1 max-w-2xl mx-4 hidden sm:flex items-center relative">
@@ -105,17 +111,22 @@ function SearchBox() {
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (open && results.length > 0 && active > 0) go(results[active].id);
+              else submitSearch();
+              return;
+            }
             if (!open || results.length === 0) return;
             if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => (a + 1) % results.length); }
             else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + results.length) % results.length); }
-            else if (e.key === "Enter") { e.preventDefault(); go(results[active].id); }
             else if (e.key === "Escape") setOpen(false);
           }}
           className="flex-1 border border-neutral-300 rounded-l-full px-4 py-2 text-sm outline-none focus:border-blue-500"
           placeholder="Search YouTube"
         />
         <button
-          onClick={() => results[0] && go(results[0].id)}
+          onClick={submitSearch}
           className="px-5 border border-l-0 border-neutral-300 rounded-r-full bg-neutral-50 hover:bg-neutral-100"
           aria-label="Search"
         >
