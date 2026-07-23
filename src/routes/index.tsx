@@ -43,6 +43,17 @@ function Home() {
   const { ids: recentIds } = useRecent();
   const { data: recent = [] } = useVideosByIds(recentIds.slice(0, 6));
 
+  const { ids: likedIds } = useLikes();
+  const recFn = useServerFn(getRecommendedFromLikes);
+  const seedIds = likedIds.slice(0, 5);
+  const { data: recommended = [] } = useQuery<Video[]>({
+    queryKey: ["recommended", seedIds.join(",")],
+    queryFn: () => recFn({ data: { ids: seedIds } }),
+    enabled: seedIds.length > 0,
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+  });
+
   return (
     <FakeTubeLayout activeCategory={category} onCategoryChange={setCategory}>
       {recent.length > 0 && (
@@ -60,6 +71,21 @@ function Home() {
           </div>
         </section>
       )}
+
+      {recommended.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Recommended for you</h2>
+            <span className="text-xs text-neutral-500">Based on videos you liked</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+            {recommended.slice(0, 8).map((v) => (
+              <VideoCard key={v.id} video={v} />
+            ))}
+          </div>
+        </section>
+      )}
+
 
       {error ? (
         <div className="p-6 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700">
