@@ -295,47 +295,91 @@ export const getRecommendedFromLikes = createServerFn({ method: "GET" })
     if (!data.ids.length) return [];
     setResponseHeader("cache-control", "private, max-age=300, stale-while-revalidate=1800");
 
-    // Fetch liked videos to get their channelIds
+    // Fetch liked videos to get their channelIds, titles, tags
     const seed = await yt("videos", {
       part: "snippet",
       id: data.ids.join(","),
     });
-    const channelIds = Array.from(
-      new Set(
-        (seed.items ?? [])
-          .map((it) => it.snippet.channelId)
-          .filter((x): x is string => Boolean(x)),
-      ),
-    ).slice(0, 5);
-    if (!channelIds.length) return [];
+    const seedItems = seed.items ?? [];
+    if (!seedItems.length) return [];
 
-    // Fetch recent videos from each seed channel in parallel
-    const results = await Promise.allSettled(
-      channelIds.map((cid) =>
-        yt("search", {
-          part: "snippet",
-          channelId: cid,
-          type: "video",
-          maxResults: "6",
-          order: "date",
-        }),
+    const channelIds = Array.from(
+      new Set(seedItems.map((it) => it.snippet.channelId).filter((x): x is string => Boolean(x))),
+    ).slice(0, 3);
+
+    // Build lightweight search queries from titles: strip punctuation, drop stopwords,
+    // keep the 3-4 most meaningful words per liked video.
+    const stop = new Set([
+      "the","a","an","of","and","or","to","in","on","for","with","is","are","was",
+      "were","this","that","by","at","from","how","why","what","official","video",
+      "feat","ft","vs","new","best","top","full","hd","4k","live","2024","2025","2026",
+    ]);
+    const queries = Array.from(
+      new Set(
+        seedItems.map((it) => {
+          const words = it.snippet.title
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}\s]/gu, " ")
+            .split(/\s+/)
+            .filter((w) => w.length > 2 && !stop.has(w));
+          return words.slice(0, 4).join(" ");
+        }).filter(Boolean),
       ),
-    );
+    ).slice(0, 4);
+
+    // In parallel: recent uploads from each seed channel + keyword searches across YouTube
+    const [channelResults, keywordResults] = await Promise.all([
+      Promise.allSettled(
+        channelIds.map((cid) =>
+          yt("search", {
+            part: "snippet",
+            channelId: cid,
+            type: "video",
+            maxResults: "5",
+            order: "date",
+          }),
+        ),
+      ),
+      Promise.allSettled(
+        queries.map((q) =>
+          yt("search", {
+            part: "snippet",
+            q,
+            type: "video",
+            maxResults: "8",
+            order: "relevance",
+          }),
+        ),
+      ),
+    ]);
+
     const foundIds = new Set<string>();
-    for (const r of results) {
-      if (r.status !== "fulfilled") continue;
-      for (const it of r.value.items ?? []) {
-        const id = typeof it.id === "string" ? it.id : it.id.videoId;
-        if (id && !data.ids.includes(id)) foundIds.add(id);
+    const collect = (results: PromiseSettledResult<{ items?: YTItem[] }>[]) => {
+      for (const r of results) {
+        if (r.status !== "fulfilled") continue;
+        for (const it of r.value.items ?? []) {
+          const id = typeof it.id === "string" ? it.id : it.id.videoId;
+          if (id && !data.ids.includes(id)) foundIds.add(id);
+        }
       }
-    }
-    const ids = Array.from(foundIds).slice(0, 24);
+    };
+    collect(channelResults);
+    collect(keywordResults);
+
+    const ids = Array.from(foundIds).slice(0, 40);
     if (!ids.length) return [];
     const v = await yt("videos", {
       part: "snippet,contentDetails,statistics",
       id: ids.join(","),
     });
-    return (v.items ?? []).map(toVideo);
+    // Shuffle so channel and keyword picks are interleaved
+    const items = (v.items ?? []).map(toVideo);
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [items[i], items[j]] = [items[j], items[i]];
+    }
+    return items.slice(0, 24);
   });
+
 
 
