@@ -31,8 +31,8 @@ export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
 
 function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-neutral-200 h-14 flex items-center justify-between px-4">
-      <div className="flex items-center gap-4">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-neutral-200 h-14 flex items-center justify-between px-2 sm:px-4 gap-2">
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
         <button onClick={onToggleSidebar} className="p-2 rounded-full hover:bg-neutral-100" aria-label="Toggle sidebar">
           <Menu className="h-5 w-5" />
         </button>
@@ -40,13 +40,13 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
           <div className="flex items-center justify-center h-6 w-9 rounded-md bg-red-600">
             <div className="w-0 h-0 border-l-[8px] border-l-white border-y-[5px] border-y-transparent ml-1" />
           </div>
-          <span className="text-xl font-bold tracking-tight">Premium</span>
+          <span className="text-lg sm:text-xl font-bold tracking-tight">Premium</span>
         </Link>
       </div>
       <SearchBox />
-      <div className="flex items-center gap-2">
-        <button className="p-2 rounded-full hover:bg-neutral-100"><Video className="h-5 w-5" /></button>
-        <button className="p-2 rounded-full hover:bg-neutral-100"><Bell className="h-5 w-5" /></button>
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <button className="p-2 rounded-full hover:bg-neutral-100 hidden sm:inline-flex"><Video className="h-5 w-5" /></button>
+        <button className="p-2 rounded-full hover:bg-neutral-100 hidden sm:inline-flex"><Bell className="h-5 w-5" /></button>
         <button className="h-8 w-8 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white">
           <User className="h-4 w-4" />
         </button>
@@ -54,6 +54,7 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
     </header>
   );
 }
+
 
 function useDebounced<T>(value: T, delay = 250): T {
   const [debounced, setDebounced] = useState(value);
@@ -104,7 +105,9 @@ function SearchBox() {
   };
 
   return (
-    <div ref={wrapRef} className="flex-1 max-w-2xl mx-4 hidden sm:flex items-center relative">
+    <div ref={wrapRef} className="flex-1 max-w-2xl mx-2 sm:mx-4 flex items-center relative">
+
+
       <div className="flex flex-1">
         <input
           value={q}
@@ -122,23 +125,25 @@ function SearchBox() {
             else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + results.length) % results.length); }
             else if (e.key === "Escape") setOpen(false);
           }}
-          className="flex-1 border border-neutral-300 rounded-l-full px-4 py-2 text-sm outline-none focus:border-blue-500"
-          placeholder="Search YouTube"
+          className="flex-1 min-w-0 border border-neutral-300 rounded-l-full px-3 sm:px-4 py-2 text-sm outline-none focus:border-blue-500"
+          placeholder="Search"
         />
         <button
           onClick={submitSearch}
-          className="px-5 border border-l-0 border-neutral-300 rounded-r-full bg-neutral-50 hover:bg-neutral-100"
+          className="px-4 sm:px-5 border border-l-0 border-neutral-300 rounded-r-full bg-neutral-50 hover:bg-neutral-100"
           aria-label="Search"
         >
           <Search className="h-4 w-4" />
         </button>
       </div>
-      <button className="ml-2 p-2 rounded-full bg-neutral-100 hover:bg-neutral-200" aria-label="Voice search">
+      <button className="ml-2 p-2 rounded-full bg-neutral-100 hover:bg-neutral-200 hidden sm:inline-flex" aria-label="Voice search">
         <Mic className="h-4 w-4" />
       </button>
 
+
       {open && q.trim() && (
-        <div className="absolute top-full left-0 right-14 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden z-50 max-h-[70vh] overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 sm:right-14 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden z-50 max-h-[70vh] overflow-y-auto">
+
           {isFetching && results.length === 0 ? (
             <div className="p-4 text-sm text-neutral-500 flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" /> Searching YouTube…
