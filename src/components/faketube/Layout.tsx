@@ -207,32 +207,53 @@ function SearchBox() {
 
       {showResults && (
         <div className="absolute top-full left-0 right-0 sm:right-14 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden z-50 max-h-[70vh] overflow-y-auto">
-          {isFetching && results.length === 0 ? (
-            <div className="p-4 text-sm text-neutral-500 flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Searching YouTube…
-            </div>
-          ) : results.length === 0 ? (
-            <div className="p-4 text-sm text-neutral-500">No videos match “{q}”.</div>
-          ) : (
-            results.map((v, i) => (
+          {suggestions.map((s, i) => {
+            const idx = i + 1;
+            return (
               <button
-                key={v.id}
-                onMouseEnter={() => setActive(i)}
-                onClick={() => go(v.id)}
+                key={`sg-${s}`}
+                onMouseEnter={() => setActive(idx)}
+                onClick={() => runSearch(s)}
                 className={`w-full flex items-center gap-3 px-3 py-2 text-left ${
-                  i === active ? "bg-neutral-100" : "hover:bg-neutral-50"
+                  idx === active ? "bg-neutral-100" : "hover:bg-neutral-50"
                 }`}
               >
-                <img src={v.thumbnail} alt="" className="h-12 w-20 object-cover rounded-md shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium line-clamp-1">{v.title}</p>
-                  <p className="text-xs text-neutral-600 line-clamp-1">
-                    {v.channel} · {v.views} views
-                  </p>
-                </div>
-                <Search className="h-4 w-4 text-neutral-400 shrink-0" />
+                <Search className="h-4 w-4 text-neutral-500 shrink-0" />
+                <span className="text-sm truncate flex-1">{s}</span>
               </button>
-            ))
+            );
+          })}
+          {suggestCount > 0 && results.length > 0 && (
+            <div className="border-t border-neutral-100" />
+          )}
+          {isFetching && results.length === 0 && suggestCount === 0 ? (
+            <div className="p-4 text-sm text-neutral-500 flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+            </div>
+          ) : results.length === 0 && suggestCount === 0 ? (
+            <div className="p-4 text-sm text-neutral-500">No matches for “{q}”.</div>
+          ) : (
+            results.map((v, i) => {
+              const idx = suggestCount + 1 + i;
+              return (
+                <button
+                  key={v.id}
+                  onMouseEnter={() => setActive(idx)}
+                  onClick={() => go(v.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-left ${
+                    idx === active ? "bg-neutral-100" : "hover:bg-neutral-50"
+                  }`}
+                >
+                  <img src={v.thumbnail} alt="" className="h-12 w-20 object-cover rounded-md shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium line-clamp-1">{v.title}</p>
+                    <p className="text-xs text-neutral-600 line-clamp-1">
+                      {v.channel} · {v.views} views
+                    </p>
+                  </div>
+                </button>
+              );
+            })
           )}
         </div>
       )}
