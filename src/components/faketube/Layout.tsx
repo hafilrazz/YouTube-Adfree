@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Menu, Search, Mic, Video, Bell, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo, Loader2, CheckCircle2, Film, Radio, X } from "lucide-react";
 import { CATEGORIES, type Video as VideoT } from "@/lib/faketube-data";
-import { searchYouTube } from "@/lib/youtube.functions";
+import { searchYouTube, suggestSearch } from "@/lib/youtube.functions";
 import { ProfileMenu } from "@/components/faketube/ProfileMenu";
 import { useSearchHistory } from "@/lib/user-data";
 
@@ -84,19 +84,28 @@ function SearchBox() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const debounced = useDebounced(q, 300);
+  const debounced = useDebounced(q, 200);
   const searchFn = useServerFn(searchYouTube);
+  const suggestFn = useServerFn(suggestSearch);
   const { queries: history, remove: removeHistory, clear: clearHistory } = useSearchHistory();
+
+  const { data: suggestions = [] } = useQuery<string[]>({
+    queryKey: ["yt-suggest", debounced],
+    queryFn: () => suggestFn({ data: { q: debounced } }),
+    enabled: debounced.trim().length > 0,
+    staleTime: 5 * 60_000,
+  });
 
   const { data, isFetching } = useQuery<{ items: VideoT[]; nextPageToken?: string }>({
     queryKey: ["yt-search", debounced],
-    queryFn: () => searchFn({ data: { q: debounced, limit: 8 } }),
+    queryFn: () => searchFn({ data: { q: debounced, limit: 6 } }),
     enabled: debounced.trim().length > 0,
     staleTime: 60_000,
   });
   const results = data?.items ?? [];
   const showHistory = open && !q.trim() && history.length > 0;
   const showResults = open && !!q.trim();
+  const suggestCount = suggestions.length;
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -129,15 +138,21 @@ function SearchBox() {
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={(e) => {
+            const total = suggestCount + results.length;
             if (e.key === "Enter") {
               e.preventDefault();
-              if (open && results.length > 0 && active > 0) go(results[active].id);
-              else submitSearch();
+              if (open && active > 0 && active <= suggestCount) {
+                runSearch(suggestions[active - 1]);
+              } else if (open && active > suggestCount && results.length > 0) {
+                go(results[active - suggestCount - 1].id);
+              } else {
+                submitSearch();
+              }
               return;
             }
-            if (!open || results.length === 0) return;
-            if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => (a + 1) % results.length); }
-            else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + results.length) % results.length); }
+            if (!open || total === 0) return;
+            if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => (a + 1) % (total + 1)); }
+            else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + total + 1) % (total + 1)); }
             else if (e.key === "Escape") setOpen(false);
           }}
           className="flex-1 min-w-0 border border-neutral-300 rounded-l-full px-2.5 sm:px-4 py-2 text-sm outline-none focus:border-blue-500"
@@ -192,32 +207,53 @@ function SearchBox() {
 
       {showResults && (
         <div className="absolute top-full left-0 right-0 sm:right-14 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden z-50 max-h-[70vh] overflow-y-auto">
-          {isFetching && results.length === 0 ? (
-            <div className="p-4 text-sm text-neutral-500 flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Searching YouTube…
-            </div>
-          ) : results.length === 0 ? (
-            <div className="p-4 text-sm text-neutral-500">No videos match “{q}”.</div>
-          ) : (
-            results.map((v, i) => (
+          {suggestions.map((s, i) => {
+            const idx = i + 1;
+            return (
               <button
-                key={v.id}
-                onMouseEnter={() => setActive(i)}
-                onClick={() => go(v.id)}
+                key={`sg-${s}`}
+                onMouseEnter={() => setActive(idx)}
+                onClick={() => runSearch(s)}
                 className={`w-full flex items-center gap-3 px-3 py-2 text-left ${
-                  i === active ? "bg-neutral-100" : "hover:bg-neutral-50"
+                  idx === active ? "bg-neutral-100" : "hover:bg-neutral-50"
                 }`}
               >
-                <img src={v.thumbnail} alt="" className="h-12 w-20 object-cover rounded-md shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium line-clamp-1">{v.title}</p>
-                  <p className="text-xs text-neutral-600 line-clamp-1">
-                    {v.channel} · {v.views} views
-                  </p>
-                </div>
-                <Search className="h-4 w-4 text-neutral-400 shrink-0" />
+                <Search className="h-4 w-4 text-neutral-500 shrink-0" />
+                <span className="text-sm truncate flex-1">{s}</span>
               </button>
-            ))
+            );
+          })}
+          {suggestCount > 0 && results.length > 0 && (
+            <div className="border-t border-neutral-100" />
+          )}
+          {isFetching && results.length === 0 && suggestCount === 0 ? (
+            <div className="p-4 text-sm text-neutral-500 flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+            </div>
+          ) : results.length === 0 && suggestCount === 0 ? (
+            <div className="p-4 text-sm text-neutral-500">No matches for “{q}”.</div>
+          ) : (
+            results.map((v, i) => {
+              const idx = suggestCount + 1 + i;
+              return (
+                <button
+                  key={v.id}
+                  onMouseEnter={() => setActive(idx)}
+                  onClick={() => go(v.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-left ${
+                    idx === active ? "bg-neutral-100" : "hover:bg-neutral-50"
+                  }`}
+                >
+                  <img src={v.thumbnail} alt="" className="h-12 w-20 object-cover rounded-md shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium line-clamp-1">{v.title}</p>
+                    <p className="text-xs text-neutral-600 line-clamp-1">
+                      {v.channel} · {v.views} views
+                    </p>
+                  </div>
+                </button>
+              );
+            })
           )}
         </div>
       )}
