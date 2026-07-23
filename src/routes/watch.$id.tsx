@@ -1,10 +1,11 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getYouTubeVideo } from "@/lib/youtube.functions";
-import { useLikes, usePlaylist, useRecent } from "@/lib/user-data";
+import { useLikes, usePlaylist, useRecent, getProgress, saveProgress } from "@/lib/user-data";
 import type { Video } from "@/lib/faketube-data";
+
 
 export const Route = createFileRoute("/watch/$id")({
   loader: async ({ params }) => {
