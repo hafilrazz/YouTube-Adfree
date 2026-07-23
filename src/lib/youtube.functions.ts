@@ -168,13 +168,13 @@ async function piped<T>(path: string, ttlMs = 5 * 60_000): Promise<T> {
 
 // ================== Invidious (secondary fallback) ==================
 
-const INVIDIOUS_INSTANCES = [
-  "https://invidious.nerdvpn.de",
-  "https://inv.nadeko.net",
-  "https://invidious.privacyredirect.com",
-  "https://yewtu.be",
-  "https://invidious.reallyaweso.me",
+const INVIDIOUS_INSTANCES: string[] = [
+  // Public Invidious API access is currently rate-limited/CAPTCHA-gated on
+  // nearly every instance. Left empty so we short-circuit to the primary
+  // Piped path instead of wasting time on failing fetches. Add entries here
+  // if a public API endpoint becomes reachable again.
 ];
+
 
 interface InvVideoItem {
   type?: string;
