@@ -2,9 +2,10 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Menu, Search, Mic, Video, Bell, User, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo, Loader2 } from "lucide-react";
+import { Menu, Search, Mic, Video, Bell, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo, Loader2 } from "lucide-react";
 import { CATEGORIES, type Video as VideoT } from "@/lib/faketube-data";
 import { searchYouTube } from "@/lib/youtube.functions";
+import { ProfileMenu } from "@/components/faketube/ProfileMenu";
 
 
 export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
@@ -57,9 +58,7 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         <button className="p-2 rounded-full hover:bg-neutral-100 hidden sm:inline-flex"><Video className="h-5 w-5" /></button>
         <button className="p-2 rounded-full hover:bg-neutral-100 hidden sm:inline-flex"><Bell className="h-5 w-5" /></button>
-        <button className="h-8 w-8 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white">
-          <User className="h-4 w-4" />
-        </button>
+        <ProfileMenu />
       </div>
     </header>
   );
