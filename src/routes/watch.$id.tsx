@@ -276,3 +276,64 @@ function Watch() {
     </FakeTubeLayout>
   );
 }
+
+function CommentsSection({ videoId }: { videoId: string }) {
+  const commentsFn = useServerFn(getComments);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["yt-comments", videoId],
+    queryFn: () => commentsFn({ data: { id: videoId } }),
+    staleTime: 5 * 60_000,
+  });
+
+  const comments = data?.comments ?? [];
+
+  return (
+    <section className="mt-6">
+      <h2 className="text-lg font-bold mb-4">
+        Comments {comments.length > 0 && <span className="text-sm font-normal text-neutral-500">· {comments.length}</span>}
+      </h2>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-neutral-500 py-4">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading comments…
+        </div>
+      ) : error ? (
+        <p className="text-sm text-neutral-500">Couldn't load comments.</p>
+      ) : data?.disabled ? (
+        <p className="text-sm text-neutral-500">Comments are disabled for this video.</p>
+      ) : comments.length === 0 ? (
+        <p className="text-sm text-neutral-500">No comments yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-5">
+          {comments.map((c) => (
+            <li key={c.id} className="flex gap-3">
+              <img src={c.avatar} alt="" className="h-9 w-9 rounded-full shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  {c.pinned && (
+                    <span className="inline-flex items-center gap-1 text-neutral-500">
+                      <Pin className="h-3 w-3" /> Pinned
+                    </span>
+                  )}
+                  <span className="font-semibold text-neutral-900 flex items-center gap-1">
+                    {c.author}
+                    {c.verified && <BadgeCheck className="h-3.5 w-3.5 text-neutral-500" />}
+                  </span>
+                  <span className="text-neutral-500">{c.time}</span>
+                </div>
+                <p className="text-sm mt-1 whitespace-pre-wrap break-words">{c.text}</p>
+                <div className="flex items-center gap-4 mt-2 text-xs text-neutral-600">
+                  <span className="flex items-center gap-1">
+                    <ThumbsUp className="h-3.5 w-3.5" /> {c.likes > 0 ? c.likes.toLocaleString() : ""}
+                  </span>
+                  {c.hearted && <Heart className="h-3.5 w-3.5 fill-red-500 text-red-500" />}
+                  {c.replies > 0 && <span>{c.replies} {c.replies === 1 ? "reply" : "replies"}</span>}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
