@@ -132,12 +132,14 @@ function Watch() {
   const [descExpanded, setDescExpanded] = useState(false);
   const likes = useLikes();
   const playlist = usePlaylist();
+  const musicVids = useMusicVideos();
   const { record } = useRecent();
 
   useEffect(() => { record(video.id); }, [video.id, record]);
 
   const liked = likes.isLiked(video.id);
   const saved = playlist.isSaved(video.id);
+  const inMusic = musicVids.has(video.id);
 
 
   return (
