@@ -82,6 +82,11 @@ function SearchPage() {
         <div className="flex items-center gap-2 text-sm text-neutral-500 py-10">
           <Loader2 className="h-4 w-4 animate-spin" /> Searching YouTube…
         </div>
+      ) : data?.quotaExceeded ? (
+        <div className="p-6 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
+          <p className="font-semibold">YouTube search quota reached for today</p>
+          <p className="mt-1">The YouTube Data API allows only 100 searches per day on this key. It resets at midnight Pacific Time. Trending, watch pages and suggestions still work — only the search endpoint is limited.</p>
+        </div>
       ) : items.length === 0 ? (
         <div className="text-center py-20 border border-dashed rounded-2xl">
           <p className="font-semibold">No videos found</p>
