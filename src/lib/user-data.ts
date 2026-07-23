@@ -9,7 +9,9 @@ const PLAYLIST_KEY = "faketube:playlist";
 const RECENT_KEY = "faketube:recent";
 const COMPLETED_KEY = "faketube:completed";
 const PROGRESS_KEY = "faketube:progress";
+const SEARCH_KEY = "faketube:searches";
 const RECENT_MAX = 30;
+const SEARCH_MAX = 20;
 const COMPLETE_THRESHOLD = 0.9;
 
 
