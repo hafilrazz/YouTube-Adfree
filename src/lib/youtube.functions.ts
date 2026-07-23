@@ -287,3 +287,55 @@ export const getShorts = createServerFn({ method: "GET" })
     return { items, nextPageToken: s.nextPageToken };
   });
 
+export const getRecommendedFromLikes = createServerFn({ method: "GET" })
+  .inputValidator((d: { ids: string[] }) => ({
+    ids: (Array.isArray(d?.ids) ? d.ids : []).slice(0, 5).map(String).filter(Boolean),
+  }))
+  .handler(async ({ data }): Promise<Video[]> => {
+    if (!data.ids.length) return [];
+    setResponseHeader("cache-control", "private, max-age=300, stale-while-revalidate=1800");
+
+    // Fetch liked videos to get their channelIds
+    const seed = await yt("videos", {
+      part: "snippet",
+      id: data.ids.join(","),
+    });
+    const channelIds = Array.from(
+      new Set(
+        (seed.items ?? [])
+          .map((it) => it.snippet.channelId)
+          .filter((x): x is string => Boolean(x)),
+      ),
+    ).slice(0, 5);
+    if (!channelIds.length) return [];
+
+    // Fetch recent videos from each seed channel in parallel
+    const results = await Promise.allSettled(
+      channelIds.map((cid) =>
+        yt("search", {
+          part: "snippet",
+          channelId: cid,
+          type: "video",
+          maxResults: "6",
+          order: "date",
+        }),
+      ),
+    );
+    const foundIds = new Set<string>();
+    for (const r of results) {
+      if (r.status !== "fulfilled") continue;
+      for (const it of r.value.items ?? []) {
+        const id = typeof it.id === "string" ? it.id : it.id.videoId;
+        if (id && !data.ids.includes(id)) foundIds.add(id);
+      }
+    }
+    const ids = Array.from(foundIds).slice(0, 24);
+    if (!ids.length) return [];
+    const v = await yt("videos", {
+      part: "snippet,contentDetails,statistics",
+      id: ids.join(","),
+    });
+    return (v.items ?? []).map(toVideo);
+  });
+
+
