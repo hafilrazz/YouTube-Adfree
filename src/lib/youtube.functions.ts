@@ -242,6 +242,94 @@ async function invidious<T>(path: string, ttlMs = 5 * 60_000): Promise<T> {
   return value;
 }
 
+// ================== YouTube Data API v3 (final fallback) ==================
+// Used only when Piped and Invidious both fail. Requires YOUTUBE_API_KEY.
+
+interface YTSearchItem {
+  id?: { videoId?: string };
+  snippet?: {
+    title?: string;
+    description?: string;
+    channelTitle?: string;
+    channelId?: string;
+    publishedAt?: string;
+    thumbnails?: { high?: { url?: string }; medium?: { url?: string }; default?: { url?: string } };
+    liveBroadcastContent?: string;
+  };
+}
+interface YTVideoItem {
+  id?: string;
+  snippet?: YTSearchItem["snippet"];
+  contentDetails?: { duration?: string };
+  statistics?: { viewCount?: string };
+  liveStreamingDetails?: unknown;
+}
+
+function ytKey(): string | null {
+  const k = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY;
+  return k && k.length > 10 ? k : null;
+}
+
+async function ytFetch<T>(path: string): Promise<T> {
+  const key = ytKey();
+  if (!key) throw new Error("YouTube API key not configured");
+  const sep = path.includes("?") ? "&" : "?";
+  const url = `https://www.googleapis.com/youtube/v3${path}${sep}key=${key}`;
+  const cacheKey = `yt:${path}`;
+  const cached = cacheGet<T>(cacheKey);
+  if (cached) return cached;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`YT API ${res.status}`);
+  const j = (await res.json()) as T;
+  cacheSet(cacheKey, j, 5 * 60_000);
+  return j;
+}
+
+function parseIsoDuration(iso: string | undefined): number {
+  if (!iso) return 0;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (Number(m[1] ?? 0) * 3600) + (Number(m[2] ?? 0) * 60) + Number(m[3] ?? 0);
+}
+
+function ytSearchToVideo(it: YTSearchItem): Video | null {
+  const id = it.id?.videoId;
+  if (!id) return null;
+  const sn = it.snippet ?? {};
+  const isLive = sn.liveBroadcastContent === "live";
+  return {
+    id,
+    title: sn.title ?? "",
+    channel: sn.channelTitle ?? "",
+    channelAvatar: avatar(sn.channelId ?? sn.channelTitle ?? id),
+    views: "—",
+    posted: sn.publishedAt ? timeAgo(sn.publishedAt) : "",
+    duration: isLive ? "LIVE" : "",
+    thumbnail: sn.thumbnails?.high?.url || sn.thumbnails?.medium?.url || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    description: sn.description ?? "",
+  };
+}
+
+function ytVideoToVideo(it: YTVideoItem): Video | null {
+  const id = it.id;
+  if (!id) return null;
+  const sn = it.snippet ?? {};
+  const isLive = sn.liveBroadcastContent === "live" || Boolean(it.liveStreamingDetails);
+  const dur = parseIsoDuration(it.contentDetails?.duration);
+  return {
+    id,
+    title: sn.title ?? "",
+    channel: sn.channelTitle ?? "",
+    channelAvatar: avatar(sn.channelId ?? sn.channelTitle ?? id),
+    views: it.statistics?.viewCount ? formatViews(it.statistics.viewCount) : "—",
+    posted: sn.publishedAt ? timeAgo(sn.publishedAt) : "",
+    duration: isLive ? "LIVE" : formatSeconds(dur),
+    thumbnail: sn.thumbnails?.high?.url || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    description: sn.description ?? "",
+  };
+}
+
+
 // ================== Trending ==================
 
 export const getTrending = createServerFn({ method: "GET" })
@@ -290,8 +378,34 @@ export const getTrending = createServerFn({ method: "GET" })
       console.warn("Invidious trending failed:", (e as Error).message);
     }
 
+    // Tertiary: YouTube Data API
+    try {
+      if (isTrending) {
+        const j = await ytFetch<{ items?: YTVideoItem[] }>(
+          `/videos?part=snippet,contentDetails,statistics&chart=mostPopular&maxResults=32&regionCode=${encodeURIComponent(data.region)}`,
+        );
+        const videos = (j.items ?? []).map(ytVideoToVideo).filter((v): v is Video => Boolean(v));
+        if (videos.length) return videos;
+      } else {
+        const s = await ytFetch<{ items?: YTSearchItem[] }>(
+          `/search?part=snippet&type=video&maxResults=32&q=${encodeURIComponent(data.category)}`,
+        );
+        const ids = (s.items ?? []).map((it) => it.id?.videoId).filter((x): x is string => Boolean(x));
+        if (ids.length) {
+          const d = await ytFetch<{ items?: YTVideoItem[] }>(
+            `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(ids.join(","))}`,
+          );
+          const videos = (d.items ?? []).map(ytVideoToVideo).filter((v): v is Video => Boolean(v));
+          if (videos.length) return videos;
+        }
+      }
+    } catch (e) {
+      console.warn("YT API trending failed:", (e as Error).message);
+    }
+
     return [];
   });
+
 
 // ================== Search ==================
 
@@ -343,7 +457,32 @@ export const searchYouTube = createServerFn({ method: "GET" })
       }
     }
 
+    // Tertiary: YouTube Data API
+    try {
+      const s = await ytFetch<{ items?: YTSearchItem[]; nextPageToken?: string; prevPageToken?: string }>(
+        `/search?part=snippet&type=video&maxResults=${data.limit}&q=${encodeURIComponent(data.q)}${data.pageToken ? `&pageToken=${encodeURIComponent(data.pageToken)}` : ""}`,
+      );
+      const ids = (s.items ?? []).map((it) => it.id?.videoId).filter((x): x is string => Boolean(x));
+      if (ids.length) {
+        const d = await ytFetch<{ items?: YTVideoItem[] }>(
+          `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(ids.join(","))}`,
+        );
+        const map = new Map<string, Video>();
+        for (const it of d.items ?? []) {
+          const v = ytVideoToVideo(it);
+          if (v) map.set(v.id, v);
+        }
+        const items = ids.map((id) => map.get(id)).filter((v): v is Video => Boolean(v));
+        if (items.length) return { items, nextPageToken: s.nextPageToken, prevPageToken: s.prevPageToken };
+      }
+    } catch (e) {
+      const msg = (e as Error).message;
+      console.warn("YT API search failed:", msg);
+      if (/403|429|quota/i.test(msg)) return { items: [], quotaExceeded: true };
+    }
+
     return { items: [] };
+
   });
 
 // ================== Search suggestions ==================
@@ -453,7 +592,34 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
       console.warn("Invidious /videos failed:", (e as Error).message);
     }
 
+    // Tertiary: YouTube Data API
+    try {
+      const d = await ytFetch<{ items?: YTVideoItem[] }>(
+        `/videos?part=snippet,contentDetails,statistics,liveStreamingDetails&id=${encodeURIComponent(data.id)}`,
+      );
+      const it = d.items?.[0];
+      if (it) {
+        const video = ytVideoToVideo(it);
+        if (video) {
+          let related: Video[] = [];
+          try {
+            const q = video.title.split(/\s+/).slice(0, 5).join(" ");
+            const s = await ytFetch<{ items?: YTSearchItem[] }>(
+              `/search?part=snippet&type=video&maxResults=20&q=${encodeURIComponent(q)}`,
+            );
+            related = (s.items ?? [])
+              .map(ytSearchToVideo)
+              .filter((v): v is Video => Boolean(v) && v!.id !== data.id);
+          } catch {}
+          return { video, related };
+        }
+      }
+    } catch (e) {
+      console.warn("YT API video failed:", (e as Error).message);
+    }
+
     return { video: null, related: [] };
+
   });
 
 // ================== Comments ==================
@@ -672,8 +838,28 @@ export const getShorts = createServerFn({ method: "GET" })
       return { items: mapped };
     } catch (e) {
       console.warn("Invidious shorts failed:", (e as Error).message);
+    }
+
+    // Tertiary: YouTube Data API
+    try {
+      const s = await ytFetch<{ items?: YTSearchItem[] }>(
+        `/search?part=snippet&type=video&videoDuration=short&maxResults=24&q=${encodeURIComponent(data.q + " shorts")}`,
+      );
+      const ids = (s.items ?? []).map((it) => it.id?.videoId).filter((x): x is string => Boolean(x));
+      if (!ids.length) return { items: [] };
+      const d = await ytFetch<{ items?: YTVideoItem[] }>(
+        `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(ids.join(","))}`,
+      );
+      const items = (d.items ?? [])
+        .filter((it) => parseIsoDuration(it.contentDetails?.duration) <= 60)
+        .map(ytVideoToVideo)
+        .filter((v): v is Video => Boolean(v));
+      return { items };
+    } catch (e) {
+      console.warn("YT API shorts failed:", (e as Error).message);
       return { items: [] };
     }
+
   });
 
 // ================== Recommendations from likes + searches ==================
@@ -815,6 +1001,20 @@ export const getLive = createServerFn({ method: "GET" })
       return items;
     } catch (e) {
       console.warn("Piped live search failed:", (e as Error).message);
+    }
+
+    // Tertiary: YouTube Data API
+    try {
+      const s = await ytFetch<{ items?: YTSearchItem[] }>(
+        `/search?part=snippet&type=video&eventType=live&maxResults=24&q=${encodeURIComponent(q)}`,
+      );
+      return (s.items ?? [])
+        .map(ytSearchToVideo)
+        .filter((v): v is Video => Boolean(v))
+        .map((v) => ({ ...v, duration: "LIVE" }));
+    } catch (e) {
+      console.warn("YT API live failed:", (e as Error).message);
       return [];
     }
+
   });
