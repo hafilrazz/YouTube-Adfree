@@ -194,7 +194,7 @@ function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpe
     { icon: Home, label: "Home", to: "/" as const },
     { icon: Film, label: "Reels", to: "/reels" as const },
     { icon: Radio, label: "Live", to: "/live" as const },
-    { icon: Flame, label: "Trending", to: "/" as const },
+    { icon: Flame, label: "Trending", to: "/trending" as const },
 
 
     { icon: ListVideo, label: "Playlist", to: "/playlist" as const },
