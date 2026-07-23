@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { VIDEOS, type Video } from "./faketube-data";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getVideosByIds } from "./youtube.functions";
+import type { Video } from "./faketube-data";
 
 const LIKES_KEY = "faketube:likes";
 const PLAYLIST_KEY = "faketube:playlist";
@@ -66,22 +69,20 @@ export function usePlaylist() {
 
 export function useRecent() {
   const [ids, setIds] = useIdList(RECENT_KEY);
-  const record = useCallback(
-    (id: string) => {
-      const next = [id, ...readSet(RECENT_KEY).filter((x) => x !== id)].slice(
-        0,
-        RECENT_MAX,
-      );
-      writeSet(RECENT_KEY, next);
-    },
-    [],
-  );
+  const record = useCallback((id: string) => {
+    const next = [id, ...readSet(RECENT_KEY).filter((x) => x !== id)].slice(0, RECENT_MAX);
+    writeSet(RECENT_KEY, next);
+  }, []);
   const clear = useCallback(() => writeSet(RECENT_KEY, []), []);
   return { ids, record, clear, setIds };
 }
 
-export function videosByIds(ids: string[]): Video[] {
-  return ids
-    .map((id) => VIDEOS.find((v) => v.id === id))
-    .filter((v): v is Video => Boolean(v));
+export function useVideosByIds(ids: string[]) {
+  const fn = useServerFn(getVideosByIds);
+  return useQuery<Video[]>({
+    queryKey: ["videos-by-ids", ids],
+    queryFn: () => fn({ data: { ids } }),
+    enabled: ids.length > 0,
+    staleTime: 5 * 60_000,
+  });
 }
