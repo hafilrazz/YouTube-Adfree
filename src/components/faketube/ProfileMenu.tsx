@@ -44,6 +44,7 @@ async function fileToDataUrl(file: File): Promise<string> {
 
 export function ProfileMenu() {
   const { profiles, active, addProfile, updateProfile, removeProfile, switchProfile } = useProfiles();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Profile | "new" | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
