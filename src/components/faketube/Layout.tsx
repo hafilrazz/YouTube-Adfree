@@ -217,18 +217,25 @@ function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpe
           w-60 ${open ? "md:w-60" : "md:w-20"}`}
       >
         <nav className="py-2">
-          {items.map(({ icon: Icon, label, to }) => (
-            <Link
-              key={label}
-              to={to}
-              onClick={onCloseMobile}
-              className={`flex md:${open ? "flex-row items-center gap-6 px-6 py-2" : "flex-col items-center gap-1 py-4"} flex-row items-center gap-6 px-6 py-2 hover:bg-neutral-100 mx-2 rounded-lg`}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              <span className={`text-sm md:${open ? "text-sm" : "text-[10px]"}`}>{label}</span>
-            </Link>
-          ))}
+          {items.map(({ icon: Icon, label, to }) => {
+            const desktopLayout = open
+              ? "md:flex-row md:items-center md:gap-6 md:px-6 md:py-2"
+              : "md:flex-col md:items-center md:gap-1 md:py-4 md:px-0";
+            const desktopText = open ? "md:text-sm" : "md:text-[10px]";
+            return (
+              <Link
+                key={label}
+                to={to}
+                onClick={onCloseMobile}
+                className={`flex flex-row items-center gap-6 px-6 py-2 ${desktopLayout} hover:bg-neutral-100 mx-2 rounded-lg`}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <span className={`text-sm ${desktopText}`}>{label}</span>
+              </Link>
+            );
+          })}
         </nav>
+
       </aside>
     </>
   );
