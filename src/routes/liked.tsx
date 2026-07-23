@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ThumbsUp } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { VideoCard } from "@/components/faketube/VideoCard";
-import { useLikes, videosByIds } from "@/lib/user-data";
+import { useLikes, useVideosByIds } from "@/lib/user-data";
+import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/liked")({
   head: () => ({
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/liked")({
 
 function LikedPage() {
   const { ids } = useLikes();
-  const videos = videosByIds(ids);
+  const { data: videos = [] } = useVideosByIds(ids);
   return (
     <FakeTubeLayout>
       <div className="flex items-center gap-3 mb-6">
@@ -35,7 +36,7 @@ function LikedPage() {
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-          {videos.map((v) => <VideoCard key={v.id} video={v} />)}
+          {videos.map((v: Video) => <VideoCard key={v.id} video={v} />)}
         </div>
       )}
     </FakeTubeLayout>
