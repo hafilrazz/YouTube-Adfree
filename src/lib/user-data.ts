@@ -98,7 +98,11 @@ export function useSearchHistory() {
     writeSet(SEARCH_KEY, next);
   }, []);
   const clear = useCallback(() => writeSet(SEARCH_KEY, []), []);
-  return { queries, record, clear, setQueries };
+  const remove = useCallback((q: string) => {
+    const next = readSet(SEARCH_KEY).filter((x) => x.toLowerCase() !== q.toLowerCase());
+    writeSet(SEARCH_KEY, next);
+  }, []);
+  return { queries, record, remove, clear, setQueries };
 }
 
 type ProgressMap = Record<string, { time: number; duration: number; updated: number }>;
