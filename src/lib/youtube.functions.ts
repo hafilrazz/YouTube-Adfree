@@ -235,28 +235,13 @@ function invToVideo(it: InvVideoItem): Video | null {
   };
 }
 
-async function invidious<T>(path: string): Promise<T> {
-  let lastErr: unknown = null;
-  for (const base of INVIDIOUS_INSTANCES) {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(`${base}${path}`, {
-        headers: { "user-agent": "Mozilla/5.0" },
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (!res.ok) {
-        lastErr = new Error(`${base} → ${res.status}`);
-        continue;
-      }
-      return (await res.json()) as T;
-    } catch (e) {
-      lastErr = e;
-      continue;
-    }
-  }
-  throw lastErr ?? new Error("All Invidious instances failed");
+async function invidious<T>(path: string, ttlMs = 5 * 60_000): Promise<T> {
+  const key = `inv:${path}`;
+  const cached = cacheGet<T>(key);
+  if (cached) return cached;
+  const value = (await raceFetch(INVIDIOUS_INSTANCES, path)) as T;
+  cacheSet(key, value, ttlMs);
+  return value;
 }
 
 // ================== Trending ==================
