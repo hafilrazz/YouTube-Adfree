@@ -153,7 +153,10 @@ export const searchYouTube = createServerFn({ method: "GET" })
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     url.searchParams.set("key", process.env.GOOGLE_API_KEY!);
     const res = await fetch(url.toString());
-    if (!res.ok) throw new Error(`YouTube search failed (${res.status})`);
+    if (!res.ok) {
+      console.error(`YouTube search failed (${res.status})`, await res.text().catch(() => ""));
+      return { items: [] };
+    }
     const s = (await res.json()) as { items?: YTItem[]; nextPageToken?: string; prevPageToken?: string };
     const ids = (s.items ?? [])
       .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
@@ -281,7 +284,10 @@ export const getShorts = createServerFn({ method: "GET" })
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     url.searchParams.set("key", process.env.GOOGLE_API_KEY!);
     const res = await fetch(url.toString());
-    if (!res.ok) throw new Error(`YouTube shorts search failed (${res.status})`);
+    if (!res.ok) {
+      console.error(`YouTube shorts search failed (${res.status})`);
+      return { items: [] };
+    }
     const s = (await res.json()) as { items?: YTItem[]; nextPageToken?: string };
     const ids = (s.items ?? [])
       .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
