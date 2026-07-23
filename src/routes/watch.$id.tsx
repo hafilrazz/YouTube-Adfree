@@ -1,10 +1,11 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getYouTubeVideo } from "@/lib/youtube.functions";
-import { useLikes, usePlaylist, useRecent } from "@/lib/user-data";
+import { useLikes, usePlaylist, useRecent, getProgress, saveProgress } from "@/lib/user-data";
 import type { Video } from "@/lib/faketube-data";
+
 
 export const Route = createFileRoute("/watch/$id")({
   loader: async ({ params }) => {
@@ -45,6 +46,85 @@ export const Route = createFileRoute("/watch/$id")({
   ),
 });
 
+let ytApiPromise: Promise<any> | null = null;
+function loadYouTubeApi(): Promise<any> {
+  if (typeof window === "undefined") return Promise.reject();
+  const w = window as any;
+  if (w.YT && w.YT.Player) return Promise.resolve(w.YT);
+  if (ytApiPromise) return ytApiPromise;
+  ytApiPromise = new Promise((resolve) => {
+    const prev = w.onYouTubeIframeAPIReady;
+    w.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      resolve(w.YT);
+    };
+    const s = document.createElement("script");
+    s.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(s);
+  });
+  return ytApiPromise;
+}
+
+function YouTubePlayer({ id, title }: { id: string; title: string }) {
+  const mountRef = useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<any>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const start = Math.floor(getProgress(id));
+
+    loadYouTubeApi().then((YT) => {
+      if (cancelled || !mountRef.current) return;
+      playerRef.current = new YT.Player(mountRef.current, {
+        videoId: id,
+        playerVars: { autoplay: 1, rel: 0, start },
+        events: {
+          onReady: (e: any) => {
+            interval = setInterval(() => {
+              const p = playerRef.current;
+              if (!p?.getCurrentTime) return;
+              const t = p.getCurrentTime();
+              const d = p.getDuration();
+              if (d > 0) saveProgress(id, t, d);
+            }, 3000);
+            e.target.playVideo();
+          },
+          onStateChange: (e: any) => {
+            const p = playerRef.current;
+            if (!p) return;
+            const d = p.getDuration?.() ?? 0;
+            const t = p.getCurrentTime?.() ?? 0;
+            if (d > 0) saveProgress(id, t, d);
+            if (e.data === YT.PlayerState.ENDED && d > 0) saveProgress(id, d, d);
+          },
+        },
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+      const p = playerRef.current;
+      if (p) {
+        try {
+          const d = p.getDuration?.() ?? 0;
+          const t = p.getCurrentTime?.() ?? 0;
+          if (d > 0) saveProgress(id, t, d);
+          p.destroy?.();
+        } catch {}
+      }
+      playerRef.current = null;
+    };
+  }, [id]);
+
+  return (
+    <div className="aspect-video rounded-xl overflow-hidden bg-black">
+      <div ref={mountRef} className="h-full w-full" title={title} />
+    </div>
+  );
+}
+
 function Watch() {
   const { video, related } = Route.useLoaderData();
   const [subscribed, setSubscribed] = useState(false);
@@ -63,16 +143,8 @@ function Watch() {
     <FakeTubeLayout>
       <div className="flex flex-col xl:flex-row gap-6 w-full min-w-0">
         <div className="flex-1 min-w-0">
-          <div className="aspect-video rounded-xl overflow-hidden bg-black">
-            <iframe
-              key={video.id}
-              className="h-full w-full"
-              src={`https://www.youtube.com/embed/${video.id}?autoplay=1&rel=0`}
-              title={video.title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
-          </div>
+          <YouTubePlayer id={video.id} title={video.title} />
+
 
           <h1 className="mt-4 text-lg sm:text-xl font-bold break-words">{video.title}</h1>
 
