@@ -67,12 +67,22 @@ function ReelsPage() {
         ) : items.length === 0 ? (
           <div className="text-center text-sm text-neutral-500 py-16">No reels found.</div>
         ) : (
-          <div className="h-[calc(100vh-10rem)] overflow-y-auto snap-y snap-mandatory rounded-xl">
-            {items.map((v) => (
-              <Reel key={v.id} video={v} />
-            ))}
+          <div className="relative">
+            <button
+              onClick={() => setMuted((m) => !m)}
+              className="absolute top-3 right-3 z-10 h-10 w-10 rounded-full bg-black/60 text-white flex items-center justify-center backdrop-blur"
+              aria-label={muted ? "Unmute" : "Mute"}
+            >
+              {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+            </button>
+            <div className="h-[calc(100vh-10rem)] overflow-y-auto snap-y snap-mandatory rounded-xl">
+              {items.map((v) => (
+                <Reel key={v.id} video={v} muted={muted} />
+              ))}
+            </div>
           </div>
         )}
+
       </div>
     </FakeTubeLayout>
   );
