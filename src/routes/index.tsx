@@ -61,12 +61,16 @@ function Home() {
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Recommended for you</h2>
-        {seedIds.length > 0 && <span className="text-xs text-neutral-500">Based on videos you liked</span>}
+        {hasSignal && (
+          <span className="text-xs text-neutral-500">
+            Based on your {seedIds.length > 0 && "likes"}{seedIds.length > 0 && seedQueries.length > 0 && " & "}{seedQueries.length > 0 && "searches"}
+          </span>
+        )}
       </div>
 
-      {seedIds.length === 0 ? (
+      {!hasSignal ? (
         <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 text-center text-sm text-neutral-500">
-          Like some videos to get personalized recommendations here.{" "}
+          Like some videos or search for something to get personalized recommendations here.{" "}
           <Link to="/trending" className="text-blue-600">Browse trending</Link> to get started.
         </div>
       ) : error ? (
