@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as PlaylistRouteImport } from './routes/playlist'
+import { Route as MusicRouteImport } from './routes/music'
 import { Route as LikedRouteImport } from './routes/liked'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
+import { Route as MusicPlaylistRouteImport } from './routes/music.playlist'
 
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
@@ -24,6 +26,11 @@ const SearchRoute = SearchRouteImport.update({
 const PlaylistRoute = PlaylistRouteImport.update({
   id: '/playlist',
   path: '/playlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MusicRoute = MusicRouteImport.update({
+  id: '/music',
+  path: '/music',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LikedRoute = LikedRouteImport.update({
@@ -46,21 +53,30 @@ const WatchIdRoute = WatchIdRouteImport.update({
   path: '/watch/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MusicPlaylistRoute = MusicPlaylistRouteImport.update({
+  id: '/playlist',
+  path: '/playlist',
+  getParentRoute: () => MusicRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/liked': typeof LikedRoute
+  '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
   '/search': typeof SearchRoute
+  '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/liked': typeof LikedRoute
+  '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
   '/search': typeof SearchRoute
+  '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
 }
 export interface FileRoutesById {
@@ -68,8 +84,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/liked': typeof LikedRoute
+  '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
   '/search': typeof SearchRoute
+  '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
 }
 export interface FileRouteTypes {
@@ -78,18 +96,30 @@ export interface FileRouteTypes {
     | '/'
     | '/history'
     | '/liked'
+    | '/music'
     | '/playlist'
     | '/search'
+    | '/music/playlist'
     | '/watch/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/liked' | '/playlist' | '/search' | '/watch/$id'
+  to:
+    | '/'
+    | '/history'
+    | '/liked'
+    | '/music'
+    | '/playlist'
+    | '/search'
+    | '/music/playlist'
+    | '/watch/$id'
   id:
     | '__root__'
     | '/'
     | '/history'
     | '/liked'
+    | '/music'
     | '/playlist'
     | '/search'
+    | '/music/playlist'
     | '/watch/$id'
   fileRoutesById: FileRoutesById
 }
@@ -97,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HistoryRoute: typeof HistoryRoute
   LikedRoute: typeof LikedRoute
+  MusicRoute: typeof MusicRouteWithChildren
   PlaylistRoute: typeof PlaylistRoute
   SearchRoute: typeof SearchRoute
   WatchIdRoute: typeof WatchIdRoute
@@ -116,6 +147,13 @@ declare module '@tanstack/react-router' {
       path: '/playlist'
       fullPath: '/playlist'
       preLoaderRoute: typeof PlaylistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/music': {
+      id: '/music'
+      path: '/music'
+      fullPath: '/music'
+      preLoaderRoute: typeof MusicRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/liked': {
@@ -146,13 +184,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WatchIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/music/playlist': {
+      id: '/music/playlist'
+      path: '/playlist'
+      fullPath: '/music/playlist'
+      preLoaderRoute: typeof MusicPlaylistRouteImport
+      parentRoute: typeof MusicRoute
+    }
   }
 }
+
+interface MusicRouteChildren {
+  MusicPlaylistRoute: typeof MusicPlaylistRoute
+}
+
+const MusicRouteChildren: MusicRouteChildren = {
+  MusicPlaylistRoute: MusicPlaylistRoute,
+}
+
+const MusicRouteWithChildren = MusicRoute._addFileChildren(MusicRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HistoryRoute: HistoryRoute,
   LikedRoute: LikedRoute,
+  MusicRoute: MusicRouteWithChildren,
   PlaylistRoute: PlaylistRoute,
   SearchRoute: SearchRoute,
   WatchIdRoute: WatchIdRoute,

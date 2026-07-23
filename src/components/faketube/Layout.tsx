@@ -31,7 +31,7 @@ export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
           {onCategoryChange && (
             <CategoryBar active={activeCategory ?? "All"} onChange={onCategoryChange} />
           )}
-          <div className="mx-auto w-full max-w-[1600px] p-3 sm:p-4 md:p-6">{children}</div>
+          <div className="mx-auto w-full max-w-[1600px] p-3 sm:p-4 md:p-6 pb-28">{children}</div>
         </main>
       </div>
     </div>
@@ -194,7 +194,7 @@ function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpe
     { icon: History, label: "History", to: "/history" as const },
     { icon: Clock, label: "Watch later", to: "/playlist" as const },
     { icon: ThumbsUp, label: "Liked videos", to: "/liked" as const },
-    { icon: Music2, label: "Music", to: "/" as const },
+    { icon: Music2, label: "Music", to: "/music" as const },
     { icon: Gamepad2, label: "Gaming", to: "/" as const },
     { icon: Newspaper, label: "News", to: "/" as const },
     { icon: Trophy, label: "Sports", to: "/" as const },
