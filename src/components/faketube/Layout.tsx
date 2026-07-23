@@ -86,6 +86,7 @@ function SearchBox() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const debounced = useDebounced(q, 300);
   const searchFn = useServerFn(searchYouTube);
+  const { queries: history, remove: removeHistory, clear: clearHistory } = useSearchHistory();
 
   const { data, isFetching } = useQuery<{ items: VideoT[]; nextPageToken?: string }>({
     queryKey: ["yt-search", debounced],
@@ -94,6 +95,8 @@ function SearchBox() {
     staleTime: 60_000,
   });
   const results = data?.items ?? [];
+  const showHistory = open && !q.trim() && history.length > 0;
+  const showResults = open && !!q.trim();
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -110,17 +113,16 @@ function SearchBox() {
     setQ("");
     navigate({ to: "/watch/$id", params: { id } });
   };
-  const submitSearch = () => {
-    const term = q.trim();
-    if (!term) return;
+  const runSearch = (term: string) => {
+    const t = term.trim();
+    if (!t) return;
     setOpen(false);
-    navigate({ to: "/search", search: { q: term } });
+    navigate({ to: "/search", search: { q: t } });
   };
+  const submitSearch = () => runSearch(q);
 
   return (
     <div ref={wrapRef} className="min-w-0 w-full flex-1 max-w-2xl mx-1 sm:mx-4 flex items-center relative">
-
-
       <div className="flex min-w-0 flex-1">
         <input
           value={q}
@@ -153,10 +155,43 @@ function SearchBox() {
         <Mic className="h-4 w-4" />
       </button>
 
-
-      {open && q.trim() && (
+      {showHistory && (
         <div className="absolute top-full left-0 right-0 sm:right-14 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden z-50 max-h-[70vh] overflow-y-auto">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-100">
+            <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Recent searches</span>
+            <button
+              onClick={() => clearHistory()}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              Clear all
+            </button>
+          </div>
+          {history.map((term) => (
+            <div
+              key={term}
+              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-neutral-50 group"
+            >
+              <History className="h-4 w-4 text-neutral-500 shrink-0" />
+              <button
+                onClick={() => runSearch(term)}
+                className="flex-1 min-w-0 text-left text-sm truncate"
+              >
+                {term}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); removeHistory(term); }}
+                className="p-1 rounded-full hover:bg-neutral-200 shrink-0"
+                aria-label={`Remove ${term} from history`}
+              >
+                <X className="h-4 w-4 text-neutral-500" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
+      {showResults && (
+        <div className="absolute top-full left-0 right-0 sm:right-14 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden z-50 max-h-[70vh] overflow-y-auto">
           {isFetching && results.length === 0 ? (
             <div className="p-4 text-sm text-neutral-500 flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" /> Searching YouTube…
@@ -189,6 +224,7 @@ function SearchBox() {
     </div>
   );
 }
+
 
 function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpen: boolean; onCloseMobile: () => void }) {
   const items = [
