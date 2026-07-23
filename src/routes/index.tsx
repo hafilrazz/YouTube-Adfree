@@ -26,14 +26,17 @@ export const Route = createFileRoute("/")({
 function Home() {
   const [category, setCategory] = useState("All");
   const trendingFn = useServerFn(getTrending);
+  // Bucket by hour so the feed rotates every hour
+  const hourBucket = Math.floor(Date.now() / (60 * 60_000));
   const { data: videos = [], isLoading, error } = useQuery<Video[]>({
-    queryKey: ["trending", category],
+    queryKey: ["trending", category, hourBucket],
     queryFn: () => trendingFn({ data: { category } }),
-    staleTime: 5 * 60_000,
-    gcTime: 30 * 60_000,
+    staleTime: 60 * 60_000,
+    gcTime: 2 * 60 * 60_000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
+
 
 
   const { ids: recentIds } = useRecent();
