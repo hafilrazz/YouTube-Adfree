@@ -21,7 +21,7 @@ export const Route = createFileRoute("/history")({
 
 function HistoryPage() {
   const { ids, clear } = useRecent();
-  const videos = videosByIds(ids);
+  const { data: videos = [] } = useVideosByIds(ids);
   return (
     <FakeTubeLayout>
       <div className="flex items-center gap-3 mb-6">
