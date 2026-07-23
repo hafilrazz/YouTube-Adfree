@@ -89,6 +89,18 @@ export function useCompleted() {
   return { ids, clear, setIds };
 }
 
+export function useSearchHistory() {
+  const [queries, setQueries] = useIdList(SEARCH_KEY);
+  const record = useCallback((q: string) => {
+    const clean = q.trim().slice(0, 80);
+    if (!clean) return;
+    const next = [clean, ...readSet(SEARCH_KEY).filter((x) => x.toLowerCase() !== clean.toLowerCase())].slice(0, SEARCH_MAX);
+    writeSet(SEARCH_KEY, next);
+  }, []);
+  const clear = useCallback(() => writeSet(SEARCH_KEY, []), []);
+  return { queries, record, clear, setQueries };
+}
+
 type ProgressMap = Record<string, { time: number; duration: number; updated: number }>;
 
 function readProgress(): ProgressMap {
