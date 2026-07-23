@@ -184,6 +184,99 @@ async function piped<T>(path: string): Promise<T> {
   throw lastErr ?? new Error("All Piped instances failed");
 }
 
+// ================== Invidious (secondary fallback) ==================
+// Public YouTube frontend mirrors. No key, no quota. Used when all
+// Piped instances fail, before falling back to the official Data API.
+
+const INVIDIOUS_INSTANCES = [
+  "https://invidious.nerdvpn.de",
+  "https://inv.nadeko.net",
+  "https://invidious.privacyredirect.com",
+  "https://yewtu.be",
+  "https://invidious.reallyaweso.me",
+];
+
+interface InvVideoItem {
+  type?: string;
+  videoId?: string;
+  title?: string;
+  author?: string;
+  authorId?: string;
+  authorUrl?: string;
+  authorThumbnails?: { url: string; width: number }[];
+  videoThumbnails?: { url: string; quality?: string; width?: number }[];
+  viewCount?: number;
+  viewCountText?: string;
+  publishedText?: string;
+  published?: number;
+  lengthSeconds?: number;
+  description?: string;
+  descriptionHtml?: string;
+  liveNow?: boolean;
+  isUpcoming?: boolean;
+}
+
+function invAvatar(list: { url: string; width: number }[] | undefined, seed: string): string {
+  if (!list || !list.length) return avatar(seed);
+  const sorted = [...list].sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
+  const u = sorted[0].url;
+  return u.startsWith("//") ? `https:${u}` : u;
+}
+
+function invThumb(list: { url: string; quality?: string; width?: number }[] | undefined, id: string): string {
+  if (!list || !list.length) return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+  const pick =
+    list.find((t) => t.quality === "maxresdefault") ??
+    list.find((t) => t.quality === "hqdefault") ??
+    list.find((t) => t.quality === "high") ??
+    list[0];
+  const u = pick.url;
+  return u.startsWith("//") ? `https:${u}` : u;
+}
+
+function invToVideo(it: InvVideoItem): Video | null {
+  const id = it.videoId;
+  if (!id) return null;
+  return {
+    id,
+    title: it.title ?? "",
+    channel: it.author ?? "",
+    channelAvatar: invAvatar(it.authorThumbnails, it.author ?? id),
+    views:
+      typeof it.viewCount === "number" && it.viewCount >= 0
+        ? formatViews(String(it.viewCount))
+        : it.viewCountText ?? "—",
+    posted: it.publishedText ?? (it.published ? timeAgo(new Date(it.published * 1000).toISOString()) : ""),
+    duration: it.liveNow ? "LIVE" : formatSeconds(it.lengthSeconds ?? 0),
+    thumbnail: invThumb(it.videoThumbnails, id),
+    description: it.description ?? "",
+  };
+}
+
+async function invidious<T>(path: string): Promise<T> {
+  let lastErr: unknown = null;
+  for (const base of INVIDIOUS_INSTANCES) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`${base}${path}`, {
+        headers: { "user-agent": "Mozilla/5.0" },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        lastErr = new Error(`${base} → ${res.status}`);
+        continue;
+      }
+      return (await res.json()) as T;
+    } catch (e) {
+      lastErr = e;
+      continue;
+    }
+  }
+  throw lastErr ?? new Error("All Invidious instances failed");
+}
+
 export const getTrending = createServerFn({ method: "GET" })
   .inputValidator((d: { category?: string; region?: string }) => ({
     category: d?.category ?? "All",
@@ -214,6 +307,25 @@ export const getTrending = createServerFn({ method: "GET" })
       } catch (e) {
         console.warn("Piped category search failed, falling back:", (e as Error).message);
       }
+    }
+
+    // Secondary: Invidious (no key, no quota)
+    try {
+      if (data.category === "All" || data.category === "Trending") {
+        const items = await invidious<InvVideoItem[]>(
+          `/api/v1/trending?region=${encodeURIComponent(data.region)}`,
+        );
+        const videos = items.map(invToVideo).filter((v): v is Video => Boolean(v));
+        if (videos.length) return videos.slice(0, 32);
+      } else {
+        const items = await invidious<InvVideoItem[]>(
+          `/api/v1/search?q=${encodeURIComponent(data.category)}&type=video&sort_by=relevance`,
+        );
+        const videos = items.map(invToVideo).filter((v): v is Video => Boolean(v));
+        if (videos.length) return videos.slice(0, 32);
+      }
+    } catch (e) {
+      console.warn("Invidious trending failed, falling back to YouTube API:", (e as Error).message);
     }
 
     // Fallback: official YouTube Data API
@@ -280,6 +392,24 @@ export const searchYouTube = createServerFn({ method: "GET" })
       }
     } catch (e) {
       console.warn("Piped search failed, falling back to YouTube API:", (e as Error).message);
+    }
+
+    // Secondary: Invidious search (no quota). Only used for first page —
+    // Invidious pagination uses ?page=N which we don't track here.
+    if (!data.pageToken) {
+      try {
+        const items = await invidious<InvVideoItem[]>(
+          `/api/v1/search?q=${encodeURIComponent(data.q)}&type=video`,
+        );
+        const mapped = items
+          .filter((it) => !it.type || it.type === "video")
+          .map(invToVideo)
+          .filter((v): v is Video => Boolean(v))
+          .slice(0, data.limit);
+        if (mapped.length) return { items: mapped };
+      } catch (e) {
+        console.warn("Invidious search failed, falling back to YouTube API:", (e as Error).message);
+      }
     }
 
     // Fallback: official YouTube Data API
@@ -386,6 +516,56 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
       return { video, related };
     } catch (e) {
       console.warn("Piped /streams failed, falling back to YouTube API:", (e as Error).message);
+    }
+
+    // Secondary: Invidious /api/v1/videos/{id} — video details + recommendedVideos.
+    try {
+      const s = await invidious<{
+        title?: string;
+        description?: string;
+        descriptionHtml?: string;
+        publishedText?: string;
+        author?: string;
+        authorThumbnails?: { url: string; width: number }[];
+        lengthSeconds?: number;
+        viewCount?: number;
+        videoThumbnails?: { url: string; quality?: string; width?: number }[];
+        recommendedVideos?: InvVideoItem[];
+        liveNow?: boolean;
+      }>(`/api/v1/videos/${encodeURIComponent(data.id)}`);
+
+      const descText = (s.description ?? "")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+
+      const video: Video = {
+        id: data.id,
+        title: s.title ?? "",
+        channel: s.author ?? "",
+        channelAvatar: invAvatar(s.authorThumbnails, s.author ?? data.id),
+        views:
+          typeof s.viewCount === "number" && s.viewCount >= 0
+            ? formatViews(String(s.viewCount))
+            : "—",
+        posted: s.publishedText ?? "",
+        duration: s.liveNow ? "LIVE" : formatSeconds(s.lengthSeconds ?? 0),
+        thumbnail: invThumb(s.videoThumbnails, data.id),
+        description: descText,
+      };
+
+      const related = (s.recommendedVideos ?? [])
+        .map(invToVideo)
+        .filter((v): v is Video => v !== null && v.id !== data.id)
+        .slice(0, 20);
+
+      return { video, related };
+    } catch (e) {
+      console.warn("Invidious /videos failed, falling back to YouTube API:", (e as Error).message);
     }
 
     // Fallback: official YouTube Data API
@@ -509,7 +689,50 @@ export const getComments = createServerFn({ method: "GET" })
         nextPageToken: res.nextpage ? String(res.nextpage) : undefined,
       };
     } catch (e) {
-      console.warn("Piped comments failed:", (e as Error).message);
+      console.warn("Piped comments failed, trying Invidious:", (e as Error).message);
+    }
+
+    // Secondary: Invidious comments
+    try {
+      interface InvComment {
+        commentId?: string;
+        author?: string;
+        authorThumbnails?: { url: string; width: number }[];
+        content?: string;
+        contentHtml?: string;
+        publishedText?: string;
+        likeCount?: number;
+        replies?: { replyCount?: number };
+        isPinned?: boolean;
+        creatorHeart?: unknown;
+        verified?: boolean;
+        authorIsChannelOwner?: boolean;
+      }
+      const res = await invidious<{ comments?: InvComment[]; continuation?: string }>(
+        `/api/v1/comments/${encodeURIComponent(data.id)}?source=youtube`,
+      );
+      const comments: WatchComment[] = (res.comments ?? []).map((c) => ({
+        id: c.commentId ?? Math.random().toString(36).slice(2),
+        author: c.author ?? "",
+        avatar: invAvatar(c.authorThumbnails, c.author ?? "user"),
+        text: (c.content ?? "")
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<[^>]+>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'"),
+        time: c.publishedText ?? "",
+        likes: typeof c.likeCount === "number" ? c.likeCount : 0,
+        replies: typeof c.replies?.replyCount === "number" ? c.replies.replyCount : 0,
+        pinned: Boolean(c.isPinned),
+        hearted: Boolean(c.creatorHeart),
+        verified: Boolean(c.verified),
+      }));
+      return { comments, nextPageToken: res.continuation };
+    } catch (e) {
+      console.warn("Invidious comments failed:", (e as Error).message);
       return { comments: [] };
     }
   });
