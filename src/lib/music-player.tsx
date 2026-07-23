@@ -1,7 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback, type ReactNode } from "react";
-import { TRACKS, getTrack, type Track } from "@/lib/music-data";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-const PLAYLIST_KEY = "ft-music-playlist-v1";
+export type Track = {
+  id: string; // YouTube video id
+  title: string;
+  artist: string;
+  cover: string; // thumbnail URL
+};
 
 type Ctx = {
   current: Track | null;
@@ -10,117 +14,170 @@ type Ctx = {
   isPlaying: boolean;
   progress: number;
   duration: number;
-  playlist: string[];
+  ready: boolean;
   playFromQueue: (queue: Track[], index: number) => void;
-  playTrack: (id: string) => void;
   toggle: () => void;
   next: () => void;
   prev: () => void;
   seek: (time: number) => void;
-  addToPlaylist: (id: string) => void;
-  removeFromPlaylist: (id: string) => void;
-  playPlaylist: (startId?: string) => void;
-  isInPlaylist: (id: string) => boolean;
 };
 
 const MusicCtx = createContext<Ctx | null>(null);
 
-function readPlaylist(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(PLAYLIST_KEY) || "[]");
-  } catch {
-    return [];
+// Minimal typings for the YT IFrame API
+interface YTPlayer {
+  loadVideoById: (id: string) => void;
+  playVideo: () => void;
+  pauseVideo: () => void;
+  seekTo: (s: number, allow: boolean) => void;
+  getCurrentTime: () => number;
+  getDuration: () => number;
+  setVolume: (n: number) => void;
+}
+interface YTNS {
+  Player: new (
+    el: HTMLElement | string,
+    opts: {
+      height?: string | number;
+      width?: string | number;
+      videoId?: string;
+      playerVars?: Record<string, unknown>;
+      events?: {
+        onReady?: (e: { target: YTPlayer }) => void;
+        onStateChange?: (e: { data: number; target: YTPlayer }) => void;
+      };
+    }
+  ) => YTPlayer;
+  PlayerState: { ENDED: number; PLAYING: number; PAUSED: number; BUFFERING: number; CUED: number };
+}
+declare global {
+  interface Window {
+    YT?: YTNS;
+    onYouTubeIframeAPIReady?: () => void;
   }
 }
 
+let ytApiPromise: Promise<YTNS> | null = null;
+function loadYouTubeApi(): Promise<YTNS> {
+  if (typeof window === "undefined") return Promise.reject(new Error("SSR"));
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (ytApiPromise) return ytApiPromise;
+  ytApiPromise = new Promise((resolve) => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      resolve(window.YT!);
+    };
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const s = document.createElement("script");
+      s.src = "https://www.youtube.com/iframe_api";
+      s.async = true;
+      document.head.appendChild(s);
+    }
+  });
+  return ytApiPromise;
+}
+
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<YTPlayer | null>(null);
+  const readyRef = useRef(false);
+  const [ready, setReady] = useState(false);
   const [queue, setQueue] = useState<Track[]>([]);
   const [index, setIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [playlist, setPlaylist] = useState<string[]>([]);
-
-  useEffect(() => setPlaylist(readPlaylist()), []);
-
-  // Initialize audio element (client only)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const audio = new Audio();
-    audio.preload = "metadata";
-    audioRef.current = audio;
-    const onTime = () => setProgress(audio.currentTime);
-    const onDur = () => setDuration(audio.duration || 0);
-    const onEnd = () => nextRef.current?.();
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-    audio.addEventListener("timeupdate", onTime);
-    audio.addEventListener("loadedmetadata", onDur);
-    audio.addEventListener("ended", onEnd);
-    audio.addEventListener("play", onPlay);
-    audio.addEventListener("pause", onPause);
-    return () => {
-      audio.pause();
-      audio.removeEventListener("timeupdate", onTime);
-      audio.removeEventListener("loadedmetadata", onDur);
-      audio.removeEventListener("ended", onEnd);
-      audio.removeEventListener("play", onPlay);
-      audio.removeEventListener("pause", onPause);
-    };
-  }, []);
+  const pendingRef = useRef<string | null>(null);
 
   const current = queue[index] ?? null;
 
-  const loadAndPlay = useCallback((track: Track) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (audio.src !== track.url) audio.src = track.url;
-    audio.play().catch(() => { /* autoplay blocked */ });
+  // Init hidden YT player
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+    loadYouTubeApi().then((YT) => {
+      if (cancelled || !hostRef.current) return;
+      playerRef.current = new YT.Player(hostRef.current, {
+        height: "1",
+        width: "1",
+        playerVars: { playsinline: 1, controls: 0, disablekb: 1, modestbranding: 1, rel: 0 },
+        events: {
+          onReady: () => {
+            readyRef.current = true;
+            setReady(true);
+            if (pendingRef.current) {
+              playerRef.current?.loadVideoById(pendingRef.current);
+              pendingRef.current = null;
+            }
+          },
+          onStateChange: (e) => {
+            const S = window.YT!.PlayerState;
+            if (e.data === S.PLAYING) setIsPlaying(true);
+            else if (e.data === S.PAUSED) setIsPlaying(false);
+            else if (e.data === S.ENDED) nextRef.current?.();
+          },
+        },
+      });
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Poll progress
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const p = playerRef.current;
+      if (!p || !readyRef.current) return;
+      try {
+        setProgress(p.getCurrentTime() || 0);
+        const d = p.getDuration() || 0;
+        setDuration(d);
+      } catch { /* ignore */ }
+    }, 500);
+    return () => window.clearInterval(id);
   }, []);
 
   const playFromQueue = useCallback((q: Track[], i: number) => {
     setQueue(q);
     setIndex(i);
-    loadAndPlay(q[i]);
-  }, [loadAndPlay]);
-
-  const playTrack = useCallback((id: string) => {
-    const t = getTrack(id);
-    if (!t) return;
-    playFromQueue([t], 0);
-  }, [playFromQueue]);
+    const vid = q[i]?.id;
+    if (!vid) return;
+    if (readyRef.current && playerRef.current) {
+      playerRef.current.loadVideoById(vid);
+    } else {
+      pendingRef.current = vid;
+    }
+  }, []);
 
   const toggle = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio || !current) return;
-    if (audio.paused) audio.play().catch(() => {});
-    else audio.pause();
-  }, [current]);
+    const p = playerRef.current;
+    if (!p || !current) return;
+    if (isPlaying) p.pauseVideo();
+    else p.playVideo();
+  }, [current, isPlaying]);
 
   const next = useCallback(() => {
     if (queue.length === 0) return;
     const ni = (index + 1) % queue.length;
     setIndex(ni);
-    loadAndPlay(queue[ni]);
-  }, [queue, index, loadAndPlay]);
+    playerRef.current?.loadVideoById(queue[ni].id);
+  }, [queue, index]);
 
   const prev = useCallback(() => {
     if (queue.length === 0) return;
-    const audio = audioRef.current;
-    if (audio && audio.currentTime > 3) { audio.currentTime = 0; return; }
+    const p = playerRef.current;
+    if (p && p.getCurrentTime() > 3) { p.seekTo(0, true); return; }
     const ni = (index - 1 + queue.length) % queue.length;
     setIndex(ni);
-    loadAndPlay(queue[ni]);
-  }, [queue, index, loadAndPlay]);
+    playerRef.current?.loadVideoById(queue[ni].id);
+  }, [queue, index]);
 
   const nextRef = useRef(next);
   useEffect(() => { nextRef.current = next; }, [next]);
 
   const seek = useCallback((time: number) => {
-    const audio = audioRef.current;
-    if (audio) audio.currentTime = time;
+    playerRef.current?.seekTo(time, true);
+    setProgress(time);
   }, []);
 
   // MediaSession API — lockscreen / notification controls
@@ -130,14 +187,14 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: current.title,
       artist: current.artist,
-      album: "FakeTube Music",
+      album: "Premium Music",
       artwork: [
-        { src: current.cover, sizes: "400x400", type: "image/jpeg" },
-        { src: current.cover, sizes: "512x512", type: "image/jpeg" },
+        { src: current.cover, sizes: "480x360", type: "image/jpeg" },
+        { src: current.cover, sizes: "1280x720", type: "image/jpeg" },
       ],
     });
-    navigator.mediaSession.setActionHandler("play", () => audioRef.current?.play());
-    navigator.mediaSession.setActionHandler("pause", () => audioRef.current?.pause());
+    navigator.mediaSession.setActionHandler("play", () => playerRef.current?.playVideo());
+    navigator.mediaSession.setActionHandler("pause", () => playerRef.current?.pauseVideo());
     navigator.mediaSession.setActionHandler("previoustrack", () => prev());
     navigator.mediaSession.setActionHandler("nexttrack", () => next());
     navigator.mediaSession.setActionHandler("seekto", (e) => {
@@ -158,38 +215,33 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }, [duration, progress]);
 
-  const persistPlaylist = useCallback((ids: string[]) => {
-    setPlaylist(ids);
-    localStorage.setItem(PLAYLIST_KEY, JSON.stringify(ids));
-  }, []);
-
-  const addToPlaylist = useCallback((id: string) => {
-    if (playlist.includes(id)) return;
-    persistPlaylist([...playlist, id]);
-  }, [playlist, persistPlaylist]);
-
-  const removeFromPlaylist = useCallback((id: string) => {
-    persistPlaylist(playlist.filter((x) => x !== id));
-  }, [playlist, persistPlaylist]);
-
-  const isInPlaylist = useCallback((id: string) => playlist.includes(id), [playlist]);
-
-  const playPlaylist = useCallback((startId?: string) => {
-    const tracks = playlist.map((id) => getTrack(id)).filter((t): t is Track => !!t);
-    if (tracks.length === 0) return;
-    const i = startId ? Math.max(0, tracks.findIndex((t) => t.id === startId)) : 0;
-    playFromQueue(tracks, i);
-  }, [playlist, playFromQueue]);
-
   const value = useMemo<Ctx>(() => ({
-    current, queue, index, isPlaying, progress, duration, playlist,
-    playFromQueue, playTrack, toggle, next, prev, seek,
-    addToPlaylist, removeFromPlaylist, playPlaylist, isInPlaylist,
-  }), [current, queue, index, isPlaying, progress, duration, playlist,
-      playFromQueue, playTrack, toggle, next, prev, seek,
-      addToPlaylist, removeFromPlaylist, playPlaylist, isInPlaylist]);
+    current, queue, index, isPlaying, progress, duration, ready,
+    playFromQueue, toggle, next, prev, seek,
+  }), [current, queue, index, isPlaying, progress, duration, ready,
+      playFromQueue, toggle, next, prev, seek]);
 
-  return <MusicCtx.Provider value={value}>{children}</MusicCtx.Provider>;
+  return (
+    <MusicCtx.Provider value={value}>
+      {children}
+      {/* Hidden YouTube audio host — plays sound only, no visible video */}
+      <div
+        aria-hidden
+        style={{
+          position: "fixed",
+          left: "-9999px",
+          top: 0,
+          width: 1,
+          height: 1,
+          overflow: "hidden",
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      >
+        <div ref={hostRef} />
+      </div>
+    </MusicCtx.Provider>
+  );
 }
 
 export function useMusic() {
@@ -205,4 +257,6 @@ export function formatTime(s: number) {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-export { TRACKS };
+export function videoToTrack(v: { id: string; title: string; channel: string; thumbnail: string }): Track {
+  return { id: v.id, title: v.title, artist: v.channel, cover: v.thumbnail };
+}
