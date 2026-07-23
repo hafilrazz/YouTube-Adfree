@@ -29,10 +29,12 @@ function Home() {
   const { data: videos = [], isLoading, error } = useQuery<Video[]>({
     queryKey: ["trending", category],
     queryFn: () => trendingFn({ data: { category } }),
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: "always",
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
+
 
   const { ids: recentIds } = useRecent();
   const { data: recent = [] } = useVideosByIds(recentIds.slice(0, 6));

@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
+import { setResponseHeader } from "@tanstack/react-start/server";
 import type { Video } from "./faketube-data";
+
 
 const API = "https://www.googleapis.com/youtube/v3";
 
@@ -100,6 +102,7 @@ export const getTrending = createServerFn({ method: "GET" })
     region: d?.region ?? "US",
   }))
   .handler(async ({ data }): Promise<Video[]> => {
+    setResponseHeader("cache-control", "public, max-age=300, s-maxage=600, stale-while-revalidate=1800");
     if (data.category === "All" || data.category === "Trending") {
       const j = await yt("videos", {
         part: "snippet,contentDetails,statistics",
@@ -128,6 +131,7 @@ export const getTrending = createServerFn({ method: "GET" })
     return (v.items ?? []).map(toVideo);
   });
 
+
 export const searchYouTube = createServerFn({ method: "GET" })
   .inputValidator((d: { q: string; limit?: number; pageToken?: string }) => ({
     q: String(d?.q ?? "").slice(0, 120),
@@ -136,6 +140,8 @@ export const searchYouTube = createServerFn({ method: "GET" })
   }))
   .handler(async ({ data }): Promise<{ items: Video[]; nextPageToken?: string; prevPageToken?: string }> => {
     if (!data.q.trim()) return { items: [] };
+    setResponseHeader("cache-control", "public, max-age=600, s-maxage=1800, stale-while-revalidate=3600");
+
     const params: Record<string, string> = {
       part: "snippet",
       q: data.q,
@@ -168,54 +174,57 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
   .inputValidator((d: { id: string }) => ({ id: String(d?.id ?? "") }))
   .handler(async ({ data }): Promise<{ video: Video | null; related: Video[] }> => {
     if (!data.id) return { video: null, related: [] };
+    setResponseHeader("cache-control", "public, max-age=600, s-maxage=3600, stale-while-revalidate=86400");
     const v = await yt("videos", { part: "snippet,contentDetails,statistics", id: data.id });
     const item = v.items?.[0];
     if (!item) return { video: null, related: [] };
     const video = toVideo(item);
 
-    let related: Video[] = [];
-    try {
-      const channelId = item.snippet.channelId;
-      const s = await yt("search", {
+    // Fetch channel-based related AND trending fallback in parallel; pick the best.
+    const channelId = item.snippet.channelId;
+    const [channelRes, trendingRes] = await Promise.allSettled([
+      yt("search", {
         part: "snippet",
         channelId,
         type: "video",
         maxResults: "12",
         order: "date",
-      });
-      const ids = (s.items ?? [])
+      }),
+      yt("videos", {
+        part: "snippet,contentDetails,statistics",
+        chart: "mostPopular",
+        regionCode: "US",
+        maxResults: "12",
+      }),
+    ]);
+
+    let related: Video[] = [];
+    if (channelRes.status === "fulfilled") {
+      const ids = (channelRes.value.items ?? [])
         .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
         .filter((id): id is string => Boolean(id) && id !== data.id);
       if (ids.length) {
-        const rv = await yt("videos", {
-          part: "snippet,contentDetails,statistics",
-          id: ids.join(","),
-        });
-        related = (rv.items ?? []).map(toVideo);
+        try {
+          const rv = await yt("videos", {
+            part: "snippet,contentDetails,statistics",
+            id: ids.join(","),
+          });
+          related = (rv.items ?? []).map(toVideo);
+        } catch (e) {
+          console.error("related-channel details failed", e);
+        }
       }
-    } catch (e) {
-      console.error("related-channel fetch failed", e);
     }
-
-    if (related.length < 8) {
-      try {
-        const t = await yt("videos", {
-          part: "snippet,contentDetails,statistics",
-          chart: "mostPopular",
-          regionCode: "US",
-          maxResults: "12",
-        });
-        const extras = (t.items ?? [])
-          .map(toVideo)
-          .filter((x) => x.id !== data.id && !related.some((r) => r.id === x.id));
-        related = [...related, ...extras].slice(0, 12);
-      } catch (e) {
-        console.error("related-trending fallback failed", e);
-      }
+    if (related.length < 8 && trendingRes.status === "fulfilled") {
+      const extras = (trendingRes.value.items ?? [])
+        .map(toVideo)
+        .filter((x) => x.id !== data.id && !related.some((r) => r.id === x.id));
+      related = [...related, ...extras].slice(0, 12);
     }
 
     return { video, related };
   });
+
 
 export const getVideosByIds = createServerFn({ method: "GET" })
   .inputValidator((d: { ids: string[] }) => ({
