@@ -14,20 +14,21 @@ export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   return (
-    <div className="min-h-screen bg-white text-neutral-900">
+    <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden">
       <Header onToggleSidebar={() => setSidebarOpen((v) => !v)} />
       <div className="flex pt-14">
         <Sidebar open={sidebarOpen} />
-        <main className={`flex-1 ${sidebarOpen ? "md:ml-60" : "md:ml-20"} transition-all`}>
+        <main className={`flex-1 min-w-0 ${sidebarOpen ? "md:ml-60" : "md:ml-20"} transition-all`}>
           {onCategoryChange && (
             <CategoryBar active={activeCategory ?? "All"} onChange={onCategoryChange} />
           )}
-          <div className="p-4 md:p-6">{children}</div>
+          <div className="mx-auto w-full max-w-[1600px] p-3 sm:p-4 md:p-6">{children}</div>
         </main>
       </div>
     </div>
   );
 }
+
 
 function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   return (
