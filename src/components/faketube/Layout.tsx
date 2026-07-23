@@ -1,7 +1,10 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Menu, Search, Mic, Video, Bell, User, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo } from "lucide-react";
-import { CATEGORIES, searchVideos } from "@/lib/faketube-data";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { Menu, Search, Mic, Video, Bell, User, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo, Loader2 } from "lucide-react";
+import { CATEGORIES, type Video as VideoT } from "@/lib/faketube-data";
+import { searchYouTube } from "@/lib/youtube.functions";
 
 
 export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
@@ -29,7 +32,6 @@ export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
 function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-neutral-200 h-14 flex items-center justify-between px-4">
-
       <div className="flex items-center gap-4">
         <button onClick={onToggleSidebar} className="p-2 rounded-full hover:bg-neutral-100" aria-label="Toggle sidebar">
           <Menu className="h-5 w-5" />
@@ -40,7 +42,6 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
           </div>
           <span className="text-xl font-bold tracking-tight">Premium</span>
         </Link>
-
       </div>
       <SearchBox />
       <div className="flex items-center gap-2">
@@ -50,9 +51,17 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
           <User className="h-4 w-4" />
         </button>
       </div>
-
     </header>
   );
+}
+
+function useDebounced<T>(value: T, delay = 250): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
 }
 
 function SearchBox() {
@@ -61,20 +70,25 @@ function SearchBox() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const debounced = useDebounced(q, 300);
+  const searchFn = useServerFn(searchYouTube);
 
-  const results = searchVideos(q, 8);
+  const { data: results = [], isFetching } = useQuery<VideoT[]>({
+    queryKey: ["yt-search", debounced],
+    queryFn: () => searchFn({ data: { q: debounced, limit: 8 } }),
+    enabled: debounced.trim().length > 0,
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  useEffect(() => setActive(0), [q]);
+  useEffect(() => setActive(0), [debounced]);
 
   const go = (id: string) => {
     setOpen(false);
@@ -87,28 +101,17 @@ function SearchBox() {
       <div className="flex flex-1">
         <input
           value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setOpen(true);
-          }}
+          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={(e) => {
             if (!open || results.length === 0) return;
-            if (e.key === "ArrowDown") {
-              e.preventDefault();
-              setActive((a) => (a + 1) % results.length);
-            } else if (e.key === "ArrowUp") {
-              e.preventDefault();
-              setActive((a) => (a - 1 + results.length) % results.length);
-            } else if (e.key === "Enter") {
-              e.preventDefault();
-              go(results[active].id);
-            } else if (e.key === "Escape") {
-              setOpen(false);
-            }
+            if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => (a + 1) % results.length); }
+            else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + results.length) % results.length); }
+            else if (e.key === "Enter") { e.preventDefault(); go(results[active].id); }
+            else if (e.key === "Escape") setOpen(false);
           }}
           className="flex-1 border border-neutral-300 rounded-l-full px-4 py-2 text-sm outline-none focus:border-blue-500"
-          placeholder="Search"
+          placeholder="Search YouTube"
         />
         <button
           onClick={() => results[0] && go(results[0].id)}
@@ -124,7 +127,11 @@ function SearchBox() {
 
       {open && q.trim() && (
         <div className="absolute top-full left-0 right-14 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden z-50 max-h-[70vh] overflow-y-auto">
-          {results.length === 0 ? (
+          {isFetching && results.length === 0 ? (
+            <div className="p-4 text-sm text-neutral-500 flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Searching YouTube…
+            </div>
+          ) : results.length === 0 ? (
             <div className="p-4 text-sm text-neutral-500">No videos match “{q}”.</div>
           ) : (
             results.map((v, i) => (
