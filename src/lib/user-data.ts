@@ -81,6 +81,48 @@ export function useRecent() {
   return { ids, record, clear, setIds };
 }
 
+export function useCompleted() {
+  const [ids, setIds] = useIdList(COMPLETED_KEY);
+  const clear = useCallback(() => writeSet(COMPLETED_KEY, []), []);
+  return { ids, clear, setIds };
+}
+
+type ProgressMap = Record<string, { time: number; duration: number; updated: number }>;
+
+function readProgress(): ProgressMap {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(PROGRESS_KEY);
+    return raw ? (JSON.parse(raw) as ProgressMap) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function getProgress(id: string): number {
+  return readProgress()[id]?.time ?? 0;
+}
+
+export function saveProgress(id: string, time: number, duration: number) {
+  if (typeof window === "undefined" || !duration || !isFinite(time)) return;
+  const map = readProgress();
+  const ratio = time / duration;
+  if (ratio >= COMPLETE_THRESHOLD) {
+    // Mark completed and clear resume position
+    delete map[id];
+    window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(map));
+    const done = readSet(COMPLETED_KEY);
+    if (!done.includes(id)) {
+      writeSet(COMPLETED_KEY, [id, ...done].slice(0, 200));
+    }
+    return;
+  }
+  if (time < 3) return; // don't save trivial positions
+  map[id] = { time, duration, updated: Date.now() };
+  window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(map));
+}
+
+
 export function useVideosByIds(ids: string[]) {
   const fn = useServerFn(getVideosByIds);
   return useQuery<Video[]>({
