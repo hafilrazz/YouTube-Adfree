@@ -129,27 +129,39 @@ export const getTrending = createServerFn({ method: "GET" })
   });
 
 export const searchYouTube = createServerFn({ method: "GET" })
-  .inputValidator((d: { q: string; limit?: number }) => ({
+  .inputValidator((d: { q: string; limit?: number; pageToken?: string }) => ({
     q: String(d?.q ?? "").slice(0, 120),
-    limit: Math.min(Math.max(Number(d?.limit ?? 12), 1), 25),
+    limit: Math.min(Math.max(Number(d?.limit ?? 20), 1), 50),
+    pageToken: d?.pageToken ? String(d.pageToken) : "",
   }))
-  .handler(async ({ data }): Promise<Video[]> => {
-    if (!data.q.trim()) return [];
-    const s = await yt("search", {
+  .handler(async ({ data }): Promise<{ items: Video[]; nextPageToken?: string; prevPageToken?: string }> => {
+    if (!data.q.trim()) return { items: [] };
+    const params: Record<string, string> = {
       part: "snippet",
       q: data.q,
       type: "video",
       maxResults: String(data.limit),
-    });
+    };
+    if (data.pageToken) params.pageToken = data.pageToken;
+    const url = new URL(`${API}/search`);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    url.searchParams.set("key", process.env.GOOGLE_API_KEY!);
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error(`YouTube search failed (${res.status})`);
+    const s = (await res.json()) as { items?: YTItem[]; nextPageToken?: string; prevPageToken?: string };
     const ids = (s.items ?? [])
       .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
       .filter((x): x is string => Boolean(x));
-    if (!ids.length) return [];
+    if (!ids.length) return { items: [], nextPageToken: s.nextPageToken, prevPageToken: s.prevPageToken };
     const v = await yt("videos", {
       part: "snippet,contentDetails,statistics",
       id: ids.join(","),
     });
-    return (v.items ?? []).map(toVideo);
+    return {
+      items: (v.items ?? []).map(toVideo),
+      nextPageToken: s.nextPageToken,
+      prevPageToken: s.prevPageToken,
+    };
   });
 
 export const getYouTubeVideo = createServerFn({ method: "GET" })
