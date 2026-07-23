@@ -184,6 +184,99 @@ async function piped<T>(path: string): Promise<T> {
   throw lastErr ?? new Error("All Piped instances failed");
 }
 
+// ================== Invidious (secondary fallback) ==================
+// Public YouTube frontend mirrors. No key, no quota. Used when all
+// Piped instances fail, before falling back to the official Data API.
+
+const INVIDIOUS_INSTANCES = [
+  "https://invidious.nerdvpn.de",
+  "https://inv.nadeko.net",
+  "https://invidious.privacyredirect.com",
+  "https://yewtu.be",
+  "https://invidious.reallyaweso.me",
+];
+
+interface InvVideoItem {
+  type?: string;
+  videoId?: string;
+  title?: string;
+  author?: string;
+  authorId?: string;
+  authorUrl?: string;
+  authorThumbnails?: { url: string; width: number }[];
+  videoThumbnails?: { url: string; quality?: string; width?: number }[];
+  viewCount?: number;
+  viewCountText?: string;
+  publishedText?: string;
+  published?: number;
+  lengthSeconds?: number;
+  description?: string;
+  descriptionHtml?: string;
+  liveNow?: boolean;
+  isUpcoming?: boolean;
+}
+
+function invAvatar(list: { url: string; width: number }[] | undefined, seed: string): string {
+  if (!list || !list.length) return avatar(seed);
+  const sorted = [...list].sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
+  const u = sorted[0].url;
+  return u.startsWith("//") ? `https:${u}` : u;
+}
+
+function invThumb(list: { url: string; quality?: string; width?: number }[] | undefined, id: string): string {
+  if (!list || !list.length) return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+  const pick =
+    list.find((t) => t.quality === "maxresdefault") ??
+    list.find((t) => t.quality === "hqdefault") ??
+    list.find((t) => t.quality === "high") ??
+    list[0];
+  const u = pick.url;
+  return u.startsWith("//") ? `https:${u}` : u;
+}
+
+function invToVideo(it: InvVideoItem): Video | null {
+  const id = it.videoId;
+  if (!id) return null;
+  return {
+    id,
+    title: it.title ?? "",
+    channel: it.author ?? "",
+    channelAvatar: invAvatar(it.authorThumbnails, it.author ?? id),
+    views:
+      typeof it.viewCount === "number" && it.viewCount >= 0
+        ? formatViews(String(it.viewCount))
+        : it.viewCountText ?? "—",
+    posted: it.publishedText ?? (it.published ? timeAgo(new Date(it.published * 1000).toISOString()) : ""),
+    duration: it.liveNow ? "LIVE" : formatSeconds(it.lengthSeconds ?? 0),
+    thumbnail: invThumb(it.videoThumbnails, id),
+    description: it.description ?? "",
+  };
+}
+
+async function invidious<T>(path: string): Promise<T> {
+  let lastErr: unknown = null;
+  for (const base of INVIDIOUS_INSTANCES) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`${base}${path}`, {
+        headers: { "user-agent": "Mozilla/5.0" },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        lastErr = new Error(`${base} → ${res.status}`);
+        continue;
+      }
+      return (await res.json()) as T;
+    } catch (e) {
+      lastErr = e;
+      continue;
+    }
+  }
+  throw lastErr ?? new Error("All Invidious instances failed");
+}
+
 export const getTrending = createServerFn({ method: "GET" })
   .inputValidator((d: { category?: string; region?: string }) => ({
     category: d?.category ?? "All",
