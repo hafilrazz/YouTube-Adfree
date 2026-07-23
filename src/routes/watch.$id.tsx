@@ -68,6 +68,31 @@ function loadYouTubeApi(): Promise<any> {
 
 function YouTubePlayer({ id, title }: { id: string; title: string }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+    if (!isMobile) return;
+    const onFsChange = async () => {
+      const fs = document.fullscreenElement || (document as any).webkitFullscreenElement;
+      const orientation = (screen as any).orientation;
+      try {
+        if (fs && orientation?.lock) {
+          await orientation.lock("landscape");
+        } else if (!fs && orientation?.unlock) {
+          orientation.unlock();
+        }
+      } catch {
+        // Orientation lock only works in fullscreen; ignore rejections.
+      }
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange as any);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange as any);
+      try { (screen as any).orientation?.unlock?.(); } catch {}
+    };
+  }, []);
   const playerRef = useRef<any>(null);
 
   useEffect(() => {
