@@ -31,7 +31,7 @@ export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
           {onCategoryChange && (
             <CategoryBar active={activeCategory ?? "All"} onChange={onCategoryChange} />
           )}
-          <div className="mx-auto w-full max-w-[1600px] p-3 sm:p-4 md:p-6">{children}</div>
+          <div className="mx-auto w-full max-w-[1600px] p-3 sm:p-4 md:p-6 pb-28">{children}</div>
         </main>
       </div>
     </div>
