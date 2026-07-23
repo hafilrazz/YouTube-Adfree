@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ListVideo } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { VideoCard } from "@/components/faketube/VideoCard";
-import { usePlaylist, videosByIds } from "@/lib/user-data";
+import { usePlaylist, useVideosByIds } from "@/lib/user-data";
+import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/playlist")({
   head: () => ({
