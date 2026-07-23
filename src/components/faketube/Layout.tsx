@@ -73,12 +73,13 @@ function SearchBox() {
   const debounced = useDebounced(q, 300);
   const searchFn = useServerFn(searchYouTube);
 
-  const { data: results = [], isFetching } = useQuery<VideoT[]>({
+  const { data, isFetching } = useQuery<{ items: VideoT[]; nextPageToken?: string }>({
     queryKey: ["yt-search", debounced],
     queryFn: () => searchFn({ data: { q: debounced, limit: 8 } }),
     enabled: debounced.trim().length > 0,
     staleTime: 60_000,
   });
+  const results = data?.items ?? [];
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
