@@ -42,14 +42,17 @@ function Watch() {
     <FakeTubeLayout>
       <div className="flex flex-col xl:flex-row gap-6 max-w-[1600px] mx-auto">
         <div className="flex-1 min-w-0">
-          <div className="aspect-video rounded-xl overflow-hidden bg-black relative">
-            <img src={video.thumbnail.replace("/480/270", "/1280/720")} alt={video.title} className="h-full w-full object-cover opacity-70" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="h-20 w-20 rounded-full bg-red-600/90 flex items-center justify-center">
-                <div className="w-0 h-0 border-l-[22px] border-l-white border-y-[14px] border-y-transparent ml-2" />
-              </div>
-            </div>
+          <div className="aspect-video rounded-xl overflow-hidden bg-black">
+            <iframe
+              key={video.id}
+              className="h-full w-full"
+              src={`https://www.youtube.com/embed/${video.id}?autoplay=1&rel=0`}
+              title={video.title}
+              allow="accelerate; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
           </div>
+
           <h1 className="mt-4 text-xl font-bold">{video.title}</h1>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
