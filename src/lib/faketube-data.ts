@@ -1,5 +1,5 @@
 export type Video = {
-  id: string;
+  id: string; // YouTube video ID
   title: string;
   channel: string;
   channelAvatar: string;
@@ -10,47 +10,50 @@ export type Video = {
   description: string;
 };
 
-const thumb = (seed: string, w = 480, h = 270) =>
-  `https://picsum.photos/seed/${seed}/${w}/${h}`;
-const avatar = (seed: string) => `https://i.pravatar.cc/80?u=${seed}`;
+const avatar = (seed: string) => `https://i.pravatar.cc/80?u=${encodeURIComponent(seed)}`;
+const yt = (id: string) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 
 export const CATEGORIES = [
   "All", "Music", "Gaming", "News", "Live", "Coding", "Comedy",
   "Sports", "Podcasts", "Cooking", "Movies", "Travel", "Science", "Fashion",
 ];
 
-export const VIDEOS: Video[] = [
-  ["Building a YouTube clone in 10 minutes", "CodeWithFake", "1.2M", "2 days ago", "10:24"],
-  ["Lo-fi beats to code / relax to", "FakeBeats", "8.4M", "3 months ago", "1:32:10"],
-  ["I built the WORLD's largest Lego set", "FakeMaker", "3.9M", "1 week ago", "18:02"],
-  ["React 19 changed EVERYTHING", "DevDaily", "540K", "5 days ago", "12:45"],
-  ["Speedrunning Minecraft in 8 minutes", "GameGoblin", "2.1M", "4 days ago", "8:14"],
-  ["Cooking pasta like an Italian grandma", "FakeKitchen", "980K", "2 weeks ago", "14:20"],
-  ["Why the universe might be a simulation", "SpaceNerd", "1.7M", "1 month ago", "22:18"],
-  ["Tour of my $10 apartment in Tokyo", "TravelFake", "3.3M", "6 days ago", "16:45"],
-  ["Every CSS trick you should know in 2026", "FrontendFuel", "410K", "1 day ago", "19:30"],
-  ["I tried EVERY fast food burger", "BurgerBoy", "6.1M", "3 weeks ago", "24:11"],
-  ["The FUNNIEST fails of the year", "LOLCentral", "12M", "2 months ago", "11:55"],
-  ["Live: Rocket launch from Cape Canaveral", "SpaceLive", "89K watching", "Live now", "LIVE"],
-  ["Guitar solo that broke the internet", "FakeMusic", "4.2M", "5 months ago", "4:32"],
-  ["Building a PC for $500 in 2026", "TechTuber", "780K", "1 week ago", "17:10"],
-  ["Explaining quantum physics with LEGO", "SmartyPants", "2.5M", "2 months ago", "13:47"],
-  ["I lived in the arctic for 30 days", "WildFake", "5.6M", "3 weeks ago", "28:03"],
-  ["Top 10 movies you MUST watch", "CinemaFake", "1.1M", "4 days ago", "15:22"],
-  ["Street fashion in Seoul 2026", "StyleFake", "620K", "1 week ago", "9:48"],
-  ["Podcast: The future of AI", "FakeTalks", "310K", "2 days ago", "1:12:34"],
-  ["Full football match highlights", "SportsFake", "2.8M", "1 day ago", "10:03"],
-].map(([title, channel, views, posted, duration], i) => ({
-  id: `v${i + 1}`,
-  title: title as string,
-  channel: channel as string,
-  channelAvatar: avatar(channel as string),
-  views: views as string,
-  posted: posted as string,
-  duration: duration as string,
-  thumbnail: thumb(`ft-${i}`),
+// Real YouTube video IDs (public, widely known videos)
+const RAW: Array<[string, string, string, string, string, string]> = [
+  // [ytId, title, channel, views, posted, duration]
+  ["dQw4w9WgXcQ", "Rick Astley - Never Gonna Give You Up (Official Video)", "Rick Astley", "1.6B", "16 years ago", "3:33"],
+  ["9bZkp7q19f0", "PSY - GANGNAM STYLE (강남스타일) M/V", "officialpsy", "5.1B", "13 years ago", "4:13"],
+  ["kJQP7kiw5Fk", "Luis Fonsi - Despacito ft. Daddy Yankee", "Luis Fonsi", "8.7B", "9 years ago", "4:42"],
+  ["JGwWNGJdvx8", "Ed Sheeran - Shape of You (Official Music Video)", "Ed Sheeran", "6.4B", "9 years ago", "4:24"],
+  ["RgKAFK5djSk", "Wiz Khalifa - See You Again ft. Charlie Puth", "Wiz Khalifa", "6.3B", "11 years ago", "3:58"],
+  ["OPf0YbXqDm0", "Mark Ronson - Uptown Funk ft. Bruno Mars", "Mark Ronson", "5.7B", "11 years ago", "4:31"],
+  ["fLexgOxsZu0", "The Beatles - Hey Jude", "The Beatles", "410M", "10 years ago", "7:11"],
+  ["hT_nvWreIhg", "OneRepublic - Counting Stars", "OneRepublic", "4.2B", "13 years ago", "4:44"],
+  ["YQHsXMglC9A", "Adele - Hello", "Adele", "3.5B", "10 years ago", "6:07"],
+  ["CevxZvSJLk8", "Katy Perry - Roar (Official)", "Katy Perry", "4.1B", "12 years ago", "4:29"],
+  ["09R8_2nJtjg", "Maroon 5 - Sugar (Official Music Video)", "Maroon 5", "4.0B", "10 years ago", "5:02"],
+  ["ktvTqknDobU", "Imagine Dragons - Radioactive", "Imagine Dragons", "2.4B", "13 years ago", "3:07"],
+  ["fJ9rUzIMcZQ", "Queen - Bohemian Rhapsody (Official Video)", "Queen Official", "2.1B", "17 years ago", "5:59"],
+  ["60ItHLz5WEA", "Alan Walker - Faded", "Alan Walker", "4.0B", "10 years ago", "3:32"],
+  ["nfWlot6h_JM", "Taylor Swift - Shake It Off", "Taylor Swift", "3.7B", "11 years ago", "4:03"],
+  ["pRpeEdMmmQ0", "Shakira - Waka Waka (This Time for Africa)", "shakiraVEVO", "4.2B", "15 years ago", "3:31"],
+  ["JZjAg6fK-BQ", "Coldplay - Something Just Like This (Lyric)", "Coldplay", "2.7B", "8 years ago", "4:07"],
+  ["djV11Xbc914", "a-ha - Take On Me (Official 4K Music Video)", "a-ha", "2.0B", "15 years ago", "3:50"],
+  ["y6120QOlsfU", "Darude - Sandstorm", "Darude", "410M", "13 years ago", "3:44"],
+  ["L_jWHffIx5E", "Smash Mouth - All Star (Official Music Video)", "SmashMouthVEVO", "800M", "15 years ago", "3:22"],
+];
+
+export const VIDEOS: Video[] = RAW.map(([id, title, channel, views, posted, duration]) => ({
+  id,
+  title,
+  channel,
+  channelAvatar: avatar(channel),
+  views,
+  posted,
+  duration,
+  thumbnail: yt(id),
   description:
-    "Welcome to FakeTube! This is a fully fake description for a fully fake video. Like, subscribe, and hit the fake bell icon for more totally-not-real content every day.",
+    "Official upload embedded on FakeTube via YouTube. FakeTube does not host this video — all rights belong to the original creator.",
 }));
 
 export const getVideo = (id: string) => VIDEOS.find((v) => v.id === id);
