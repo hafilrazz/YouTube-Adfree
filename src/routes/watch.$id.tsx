@@ -118,7 +118,7 @@ function Watch() {
           </div>
         </div>
         <aside className="xl:w-96 flex flex-col gap-3">
-          {related.map((v) => (
+          {related.map((v: typeof related[number]) => (
             <Link to="/watch/$id" params={{ id: v.id }} key={v.id} className="flex gap-2 group">
               <div className="relative w-40 aspect-video rounded-lg overflow-hidden shrink-0 bg-neutral-200">
                 <img src={v.thumbnail} alt={v.title} className="h-full w-full object-cover" />
