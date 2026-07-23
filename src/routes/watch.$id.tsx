@@ -252,6 +252,7 @@ function Watch() {
               </button>
             )}
           </div>
+          <CommentsSection videoId={video.id} />
         </div>
         <aside className="xl:w-96 flex flex-col gap-3 min-w-0">
           <h2 className="font-semibold text-sm text-neutral-700">Up next</h2>
