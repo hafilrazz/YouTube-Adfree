@@ -1,76 +1,66 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Play, Pause, Plus, Check, ListMusic } from "lucide-react";
+import { Trash2, PlaySquare, Music2 } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
-import { TRACKS } from "@/lib/music-data";
-import { useMusic } from "@/lib/music-player";
+import { useMusicVideos } from "@/lib/music-videos";
+import { useVideosByIds } from "@/lib/user-data";
+import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/music")({
   head: () => ({
     meta: [
       { title: "Music — FakeTube" },
-      { name: "description", content: "Stream music with background playback and lockscreen controls." },
+      { name: "description", content: "Your music library." },
       { property: "og:title", content: "Music — FakeTube" },
-      { property: "og:description", content: "Stream music with background playback and lockscreen controls." },
+      { property: "og:description", content: "Your music library." },
     ],
   }),
   component: MusicPage,
 });
 
 function MusicPage() {
-  const { current, isPlaying, playFromQueue, toggle, addToPlaylist, removeFromPlaylist, isInPlaylist } = useMusic();
+  const musicVids = useMusicVideos();
+  const { data: videos = [] } = useVideosByIds(musicVids.ids);
 
   return (
     <FakeTubeLayout>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-bold">Music</h1>
-          <p className="text-sm text-neutral-500">Plays in the background — controls appear on your lockscreen.</p>
+          <p className="text-sm text-neutral-500">Music you've added from videos.</p>
         </div>
-        <Link
-          to="/music/playlist"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neutral-900 text-white text-sm hover:bg-neutral-700"
-        >
-          <ListMusic className="h-4 w-4" /> My playlist
-        </Link>
       </div>
 
-      <ul className="divide-y divide-neutral-200 border border-neutral-200 rounded-xl overflow-hidden bg-white">
-        {TRACKS.map((t, i) => {
-          const active = current?.id === t.id;
-          const inList = isInPlaylist(t.id);
-          return (
-            <li key={t.id} className="flex items-center gap-3 p-2 sm:p-3 hover:bg-neutral-50">
-              <button
-                onClick={() => (active ? toggle() : playFromQueue(TRACKS, i))}
-                className="relative h-12 w-12 shrink-0 rounded overflow-hidden group"
-                aria-label={active && isPlaying ? "Pause" : "Play"}
-              >
-                <span className="h-full w-full flex items-center justify-center bg-gradient-to-br from-red-500 to-red-700 text-white"><ListMusic className="h-5 w-5" /></span>
-                <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                  {active && isPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white ml-0.5" />}
+      {videos.length === 0 ? (
+        <div className="text-center py-16 border border-dashed rounded-2xl">
+          <Music2 className="h-10 w-10 mx-auto text-neutral-300 mb-3" />
+          <p className="text-sm text-neutral-600">Tap “Add to music” on any video to build your library.</p>
+          <Link to="/" className="inline-block mt-4 text-blue-600 text-sm">Browse videos</Link>
+        </div>
+      ) : (
+        <ul className="divide-y divide-neutral-200 border border-neutral-200 rounded-xl overflow-hidden bg-white">
+          {videos.map((v: Video) => (
+            <li key={v.id} className="flex items-center gap-3 p-2 sm:p-3 hover:bg-neutral-50">
+              <Link to="/watch/$id" params={{ id: v.id }} className="relative h-12 w-20 shrink-0 rounded overflow-hidden bg-neutral-200">
+                <img src={v.thumbnail} alt="" className="h-full w-full object-cover" />
+                <span className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                  <PlaySquare className="h-5 w-5 text-white" />
                 </span>
-                {active && (
-                  <span className="absolute inset-0 bg-red-600/20 flex items-center justify-center">
-                    {isPlaying ? <Pause className="h-5 w-5 text-white" /> : <Play className="h-5 w-5 text-white ml-0.5" />}
-                  </span>
-                )}
-              </button>
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm truncate ${active ? "text-red-600 font-semibold" : "font-medium"}`}>{t.title}</p>
-                <p className="text-xs text-neutral-500 truncate">{t.artist}</p>
-              </div>
+              </Link>
+              <Link to="/watch/$id" params={{ id: v.id }} className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate">{v.title}</p>
+                <p className="text-xs text-neutral-500 truncate">{v.channel}</p>
+              </Link>
               <button
-                onClick={() => (inList ? removeFromPlaylist(t.id) : addToPlaylist(t.id))}
-                className={`p-2 rounded-full ${inList ? "text-red-600 hover:bg-red-50" : "hover:bg-neutral-100"}`}
-                aria-label={inList ? "Remove from playlist" : "Add to playlist"}
-                title={inList ? "In your playlist" : "Add to playlist"}
+                onClick={() => musicVids.remove(v.id)}
+                className="p-2 rounded-full hover:bg-red-50 text-red-600"
+                aria-label="Remove"
               >
-                {inList ? <Check className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                <Trash2 className="h-5 w-5" />
               </button>
             </li>
-          );
-        })}
-      </ul>
+          ))}
+        </ul>
+      )}
     </FakeTubeLayout>
   );
 }
