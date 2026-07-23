@@ -339,54 +339,179 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<{ video: Video | null; related: Video[] }> => {
     if (!data.id) return { video: null, related: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=3600, stale-while-revalidate=86400");
-    const v = await yt("videos", { part: "snippet,contentDetails,statistics", id: data.id });
-    const item = v.items?.[0];
-    if (!item) return { video: null, related: [] };
-    const video = toVideo(item);
 
-    // Fetch channel-based related AND trending fallback in parallel; pick the best.
-    const channelId = item.snippet.channelId;
-    const [channelRes, trendingRes] = await Promise.allSettled([
-      yt("search", {
-        part: "snippet",
-        channelId,
-        type: "video",
-        maxResults: "12",
-        order: "date",
-      }),
-      yt("videos", {
-        part: "snippet,contentDetails,statistics",
-        chart: "mostPopular",
-        regionCode: "US",
-        maxResults: "12",
-      }),
-    ]);
+    // Primary: Piped /streams/{id} — gives video details + related streams in one call, no quota.
+    try {
+      const s = await piped<{
+        title?: string;
+        description?: string;
+        uploadDate?: string;
+        uploader?: string;
+        uploaderUrl?: string;
+        uploaderAvatar?: string;
+        duration?: number;
+        views?: number;
+        thumbnailUrl?: string;
+        relatedStreams?: PipedItem[];
+        livestream?: boolean;
+      }>(`/streams/${encodeURIComponent(data.id)}`);
 
-    let related: Video[] = [];
-    if (channelRes.status === "fulfilled") {
-      const ids = (channelRes.value.items ?? [])
-        .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
-        .filter((id): id is string => Boolean(id) && id !== data.id);
-      if (ids.length) {
-        try {
-          const rv = await yt("videos", {
-            part: "snippet,contentDetails,statistics",
-            id: ids.join(","),
-          });
-          related = (rv.items ?? []).map(toVideo);
-        } catch (e) {
-          console.error("related-channel details failed", e);
+      const descText = (s.description ?? "")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+
+      const video: Video = {
+        id: data.id,
+        title: s.title ?? "",
+        channel: s.uploader ?? "",
+        channelAvatar: s.uploaderAvatar || avatar(s.uploader ?? data.id),
+        views: typeof s.views === "number" && s.views >= 0 ? formatViews(String(s.views)) : "—",
+        posted: s.uploadDate ?? "",
+        duration: s.livestream ? "LIVE" : formatSeconds(s.duration ?? 0),
+        thumbnail: s.thumbnailUrl || `https://i.ytimg.com/vi/${data.id}/hqdefault.jpg`,
+        description: descText,
+      };
+
+      const related = (s.relatedStreams ?? [])
+        .filter((it) => !it.type || it.type === "stream")
+        .map(pipedToVideo)
+        .filter((v): v is Video => Boolean(v) && v!.id !== data.id)
+        .slice(0, 20);
+
+      return { video, related };
+    } catch (e) {
+      console.warn("Piped /streams failed, falling back to YouTube API:", (e as Error).message);
+    }
+
+    // Fallback: official YouTube Data API
+    try {
+      const v = await yt("videos", { part: "snippet,contentDetails,statistics", id: data.id });
+      const item = v.items?.[0];
+      if (!item) return { video: null, related: [] };
+      const video = toVideo(item);
+
+      const channelId = item.snippet.channelId;
+      const [channelRes, trendingRes] = await Promise.allSettled([
+        yt("search", {
+          part: "snippet",
+          channelId,
+          type: "video",
+          maxResults: "12",
+          order: "date",
+        }),
+        yt("videos", {
+          part: "snippet,contentDetails,statistics",
+          chart: "mostPopular",
+          regionCode: "US",
+          maxResults: "12",
+        }),
+      ]);
+
+      let related: Video[] = [];
+      if (channelRes.status === "fulfilled") {
+        const ids = (channelRes.value.items ?? [])
+          .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
+          .filter((id): id is string => Boolean(id) && id !== data.id);
+        if (ids.length) {
+          try {
+            const rv = await yt("videos", {
+              part: "snippet,contentDetails,statistics",
+              id: ids.join(","),
+            });
+            related = (rv.items ?? []).map(toVideo);
+          } catch (err) {
+            console.error("related-channel details failed", err);
+          }
         }
       }
+      if (related.length < 8 && trendingRes.status === "fulfilled") {
+        const extras = (trendingRes.value.items ?? [])
+          .map(toVideo)
+          .filter((x) => x.id !== data.id && !related.some((r) => r.id === x.id));
+        related = [...related, ...extras].slice(0, 12);
+      }
+
+      return { video, related };
+    } catch (err) {
+      console.error("Watch fallback failed", err);
+      return { video: null, related: [] };
     }
-    if (related.length < 8 && trendingRes.status === "fulfilled") {
-      const extras = (trendingRes.value.items ?? [])
-        .map(toVideo)
-        .filter((x) => x.id !== data.id && !related.some((r) => r.id === x.id));
-      related = [...related, ...extras].slice(0, 12);
+  });
+
+
+export interface WatchComment {
+  id: string;
+  author: string;
+  avatar: string;
+  text: string;
+  time: string;
+  likes: number;
+  replies: number;
+  pinned: boolean;
+  hearted: boolean;
+  verified: boolean;
+}
+
+export const getComments = createServerFn({ method: "GET" })
+  .inputValidator((d: { id: string; pageToken?: string }) => ({
+    id: String(d?.id ?? ""),
+    pageToken: d?.pageToken ? String(d.pageToken) : "",
+  }))
+  .handler(async ({ data }): Promise<{ comments: WatchComment[]; nextPageToken?: string; disabled?: boolean }> => {
+    if (!data.id) return { comments: [] };
+    setResponseHeader("cache-control", "public, max-age=300, s-maxage=1800, stale-while-revalidate=3600");
+
+    interface PipedComment {
+      commentId?: string;
+      author?: string;
+      thumbnail?: string;
+      commentText?: string;
+      commentedTime?: string;
+      likeCount?: number;
+      replyCount?: number;
+      hearted?: boolean;
+      pinned?: boolean;
+      verified?: boolean;
     }
 
-    return { video, related };
+    try {
+      const path = data.pageToken
+        ? `/nextpage/comments/${encodeURIComponent(data.id)}?nextpage=${encodeURIComponent(data.pageToken)}`
+        : `/comments/${encodeURIComponent(data.id)}`;
+      const res = await piped<{ comments?: PipedComment[]; nextpage?: string | null; disabled?: boolean }>(path);
+      if (res.disabled) return { comments: [], disabled: true };
+      const comments: WatchComment[] = (res.comments ?? []).map((c) => ({
+        id: c.commentId ?? Math.random().toString(36).slice(2),
+        author: c.author ?? "",
+        avatar: c.thumbnail || avatar(c.author ?? "user"),
+        text: (c.commentText ?? "")
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<[^>]+>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'"),
+        time: c.commentedTime ?? "",
+        likes: typeof c.likeCount === "number" ? c.likeCount : 0,
+        replies: typeof c.replyCount === "number" ? c.replyCount : 0,
+        pinned: Boolean(c.pinned),
+        hearted: Boolean(c.hearted),
+        verified: Boolean(c.verified),
+      }));
+      return {
+        comments,
+        nextPageToken: res.nextpage ? String(res.nextpage) : undefined,
+      };
+    } catch (e) {
+      console.warn("Piped comments failed:", (e as Error).message);
+      return { comments: [] };
+    }
   });
 
 
