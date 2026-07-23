@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Menu, Search, Mic, Video, Bell, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo, Loader2, CheckCircle2, Film } from "lucide-react";
+import { Menu, Search, Mic, Video, Bell, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo, Loader2, CheckCircle2, Film, Radio } from "lucide-react";
 import { CATEGORIES, type Video as VideoT } from "@/lib/faketube-data";
 import { searchYouTube } from "@/lib/youtube.functions";
 import { ProfileMenu } from "@/components/faketube/ProfileMenu";
