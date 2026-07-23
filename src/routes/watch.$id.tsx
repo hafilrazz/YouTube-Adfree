@@ -1,8 +1,9 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
-import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getVideo, relatedVideos } from "@/lib/faketube-data";
+import { useLikes, usePlaylist, useRecent } from "@/lib/user-data";
 
 export const Route = createFileRoute("/watch/$id")({
   loader: ({ params }) => {
@@ -13,7 +14,7 @@ export const Route = createFileRoute("/watch/$id")({
   head: ({ loaderData }) => ({
     meta: loaderData
       ? [
-          { title: `${loaderData.video.title} — FakeTube` },
+          { title: `${loaderData.video.title} — Premium` },
           { name: "description", content: loaderData.video.description },
           { property: "og:title", content: loaderData.video.title },
           { property: "og:description", content: loaderData.video.description },
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/watch/$id")({
           { name: "twitter:card", content: "summary_large_image" },
           { name: "twitter:image", content: loaderData.video.thumbnail },
         ]
-      : [{ title: "Not found — FakeTube" }, { name: "robots", content: "noindex" }],
+      : [{ title: "Not found — Premium" }, { name: "robots", content: "noindex" }],
   }),
   component: Watch,
   notFoundComponent: () => (
@@ -37,7 +38,17 @@ export const Route = createFileRoute("/watch/$id")({
 function Watch() {
   const { video, related } = Route.useLoaderData();
   const [subscribed, setSubscribed] = useState(false);
-  const [liked, setLiked] = useState(false);
+  const likes = useLikes();
+  const playlist = usePlaylist();
+  const { record } = useRecent();
+
+  useEffect(() => {
+    record(video.id);
+  }, [video.id, record]);
+
+  const liked = likes.isLiked(video.id);
+  const saved = playlist.isSaved(video.id);
+
   return (
     <FakeTubeLayout>
       <div className="flex flex-col xl:flex-row gap-6 max-w-[1600px] mx-auto">
@@ -74,16 +85,25 @@ function Watch() {
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center bg-neutral-100 rounded-full">
                 <button
-                  onClick={() => setLiked((v) => !v)}
+                  onClick={() => likes.toggle(video.id)}
                   className="px-4 py-2 flex items-center gap-2 border-r border-neutral-300 hover:bg-neutral-200 rounded-l-full text-sm"
                 >
-                  <ThumbsUp className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
-                  {liked ? "12K" : "11K"}
+                  <ThumbsUp className={`h-4 w-4 ${liked ? "fill-current text-blue-600" : ""}`} />
+                  {liked ? "Liked" : "Like"}
                 </button>
                 <button className="px-4 py-2 hover:bg-neutral-200 rounded-r-full">
                   <ThumbsDown className="h-4 w-4" />
                 </button>
               </div>
+              <button
+                onClick={() => playlist.toggle(video.id)}
+                className={`rounded-full px-4 py-2 text-sm flex items-center gap-2 ${
+                  saved ? "bg-blue-50 text-blue-700 hover:bg-blue-100" : "bg-neutral-100 hover:bg-neutral-200"
+                }`}
+              >
+                {saved ? <BookmarkCheck className="h-4 w-4" /> : <BookmarkPlus className="h-4 w-4" />}
+                {saved ? "Saved" : "Save"}
+              </button>
               <button className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2">
                 <Share2 className="h-4 w-4" /> Share
               </button>
@@ -121,6 +141,7 @@ function Watch() {
           </div>
         </div>
         <aside className="xl:w-96 flex flex-col gap-3">
+          <h2 className="font-semibold text-sm text-neutral-700">Up next</h2>
           {related.map((v: typeof related[number]) => (
             <Link to="/watch/$id" params={{ id: v.id }} key={v.id} className="flex gap-2 group">
               <div className="relative w-40 aspect-video rounded-lg overflow-hidden shrink-0 bg-neutral-200">
