@@ -42,15 +42,7 @@ function MusicPlaylistPage() {
         )}
       </div>
 
-      {tracks.length === 0 ? (
-        <div className="text-center py-16">
-          <Music2 className="h-12 w-12 mx-auto text-neutral-300 mb-3" />
-          <p className="text-neutral-600 mb-4">Your music playlist is empty.</p>
-          <Link to="/music" className="inline-flex items-center px-4 py-2 rounded-full bg-neutral-900 text-white text-sm hover:bg-neutral-700">
-            Browse music
-          </Link>
-        </div>
-      ) : (
+      {tracks.length > 0 && (
         <ul className="divide-y divide-neutral-200 border border-neutral-200 rounded-xl overflow-hidden bg-white">
           {tracks.map((t) => {
             const active = current?.id === t.id;
