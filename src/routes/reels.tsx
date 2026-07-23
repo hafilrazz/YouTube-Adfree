@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import { Loader2, ThumbsUp, MessageCircle, Share2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Loader2, ThumbsUp, MessageCircle, Share2, Volume2, VolumeX } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getShorts } from "@/lib/youtube.functions";
 import { useLikes } from "@/lib/user-data";
 import type { Video } from "@/lib/faketube-data";
+
 
 export const Route = createFileRoute("/reels")({
   head: () => ({
