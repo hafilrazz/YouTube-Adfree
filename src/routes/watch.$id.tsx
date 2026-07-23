@@ -4,6 +4,7 @@ import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, B
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getYouTubeVideo } from "@/lib/youtube.functions";
 import { useLikes, usePlaylist, useRecent } from "@/lib/user-data";
+import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/watch/$id")({
   loader: async ({ params }) => {
