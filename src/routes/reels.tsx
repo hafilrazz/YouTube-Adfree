@@ -90,20 +90,54 @@ function ReelsPage() {
   );
 }
 
-function Reel({ video }: { video: Video }) {
+function postToPlayer(iframe: HTMLIFrameElement | null, func: string, args: unknown[] = []) {
+  if (!iframe?.contentWindow) return;
+  iframe.contentWindow.postMessage(
+    JSON.stringify({ event: "command", func, args }),
+    "*",
+  );
+}
+
+function Reel({ video, muted }: { video: Video; muted: boolean }) {
   const { toggle, isLiked } = useLikes();
   const liked = isLiked(video.id);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setActive(entry.isIntersecting && entry.intersectionRatio > 0.6),
+      { threshold: [0, 0.6, 1] },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    postToPlayer(iframeRef.current, active ? "playVideo" : "pauseVideo");
+  }, [active]);
+
+  useEffect(() => {
+    postToPlayer(iframeRef.current, muted ? "mute" : "unMute");
+  }, [muted]);
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
 
   return (
-    <div className="snap-start snap-always h-[calc(100vh-10rem)] flex items-center justify-center gap-3 mb-2">
+    <div ref={wrapRef} className="snap-start snap-always h-[calc(100vh-10rem)] flex items-center justify-center gap-3 mb-2">
       <div className="relative h-full aspect-[9/16] max-h-full bg-black rounded-2xl overflow-hidden shadow-lg">
         <iframe
+          ref={iframeRef}
           className="absolute inset-0 w-full h-full"
-          src={`https://www.youtube.com/embed/${video.id}?rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${video.id}`}
+          src={`https://www.youtube.com/embed/${video.id}?enablejsapi=1&rel=0&modestbranding=1&playsinline=1&loop=1&controls=0&mute=1&playlist=${video.id}&origin=${encodeURIComponent(origin)}`}
           title={video.title}
           allow="autoplay; encrypted-media; picture-in-picture"
           allowFullScreen
         />
+
         <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white pointer-events-none">
           <Link
             to="/watch/$id"
