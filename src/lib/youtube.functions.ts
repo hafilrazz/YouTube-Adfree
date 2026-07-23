@@ -309,6 +309,25 @@ export const getTrending = createServerFn({ method: "GET" })
       }
     }
 
+    // Secondary: Invidious (no key, no quota)
+    try {
+      if (data.category === "All" || data.category === "Trending") {
+        const items = await invidious<InvVideoItem[]>(
+          `/api/v1/trending?region=${encodeURIComponent(data.region)}`,
+        );
+        const videos = items.map(invToVideo).filter((v): v is Video => Boolean(v));
+        if (videos.length) return videos.slice(0, 32);
+      } else {
+        const items = await invidious<InvVideoItem[]>(
+          `/api/v1/search?q=${encodeURIComponent(data.category)}&type=video&sort_by=relevance`,
+        );
+        const videos = items.map(invToVideo).filter((v): v is Video => Boolean(v));
+        if (videos.length) return videos.slice(0, 32);
+      }
+    } catch (e) {
+      console.warn("Invidious trending failed, falling back to YouTube API:", (e as Error).message);
+    }
+
     // Fallback: official YouTube Data API
     try {
       if (data.category === "All" || data.category === "Trending") {
