@@ -25,6 +25,8 @@ export const Route = createFileRoute("/reels")({
 
 function ReelsPage() {
   const [q, setQ] = useState("shorts");
+  const [muted, setMuted] = useState(true);
+
   const shortsFn = useServerFn(getShorts);
   const hourBucket = Math.floor(Date.now() / (60 * 60_000));
   const { data, isLoading, error } = useQuery<{ items: Video[] }>({
