@@ -2,18 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
 import type { Video } from "./faketube-data";
 
-
-const API = "https://www.googleapis.com/youtube/v3";
-
-function parseDuration(iso: string): string {
-  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  if (!m) return "";
-  const h = Number(m[1] ?? 0);
-  const min = Number(m[2] ?? 0);
-  const s = Number(m[3] ?? 0);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return h > 0 ? `${h}:${pad(min)}:${pad(s)}` : `${min}:${pad(s)}`;
-}
+// ============================================================
+// This module fetches YouTube data WITHOUT using the official
+// YouTube Data API. All requests go through public open-source
+// frontends (Piped → Invidious), which act as unauthenticated
+// proxies. No API key, no quota.
+// ============================================================
 
 function formatViews(nStr: string | undefined): string {
   const n = Number(nStr ?? 0);
@@ -45,60 +39,27 @@ function avatar(seed: string): string {
   return `https://i.pravatar.cc/80?u=${encodeURIComponent(seed)}`;
 }
 
-interface YTItem {
-  id: string | { videoId?: string };
-  snippet: {
-    title: string;
-    channelTitle: string;
-    channelId: string;
-    publishedAt: string;
-    description?: string;
-    thumbnails?: Record<string, { url: string }>;
-  };
-  contentDetails?: { duration?: string };
-  statistics?: { viewCount?: string };
+function formatSeconds(sec: number): string {
+  if (!sec || sec < 0) return "LIVE";
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
-function toVideo(it: YTItem): Video {
-  const id = typeof it.id === "string" ? it.id : (it.id.videoId ?? "");
-  const sn = it.snippet;
-  const dur = it.contentDetails?.duration ? parseDuration(it.contentDetails.duration) : "LIVE";
-  const thumb =
-    sn.thumbnails?.maxres?.url ??
-    sn.thumbnails?.high?.url ??
-    sn.thumbnails?.medium?.url ??
-    `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-  return {
-    id,
-    title: sn.title,
-    channel: sn.channelTitle,
-    channelAvatar: avatar(sn.channelTitle),
-    views: it.statistics?.viewCount ? `${formatViews(it.statistics.viewCount)}` : "—",
-    posted: timeAgo(sn.publishedAt),
-    duration: dur,
-    thumbnail: thumb,
-    description: sn.description ?? "",
-  };
-}
-
-async function yt(path: string, params: Record<string, string>): Promise<{ items?: YTItem[] }> {
-  const key = process.env.GOOGLE_API_KEY;
-  if (!key) throw new Error("GOOGLE_API_KEY is not configured");
-  const url = new URL(`${API}/${path}`);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  url.searchParams.set("key", key);
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    const body = await res.text();
-    console.error(`YouTube API ${res.status} on ${path}: ${body}`);
-    throw new Error(`YouTube API request failed (${res.status})`);
-  }
-  return res.json();
+function stripHtml(s: string): string {
+  return (s ?? "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
 }
 
 // ================== Piped (primary source) ==================
-// Piped is an open-source YouTube proxy. Free, no API key, no daily quota.
-// We hit multiple public instances and fall back to the official API on failure.
 
 const PIPED_INSTANCES = [
   "https://pipedapi.kavin.rocks",
@@ -130,13 +91,10 @@ function pipedIdFromUrl(u: string | undefined): string {
   return m ? m[1] : "";
 }
 
-function formatSeconds(sec: number): string {
-  if (!sec || sec < 0) return "LIVE";
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = Math.floor(sec % 60);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+function channelIdFromUrl(u: string | undefined): string {
+  if (!u) return "";
+  const m = u.match(/\/channel\/([\w-]+)/);
+  return m ? m[1] : "";
 }
 
 function pipedToVideo(it: PipedItem): Video | null {
@@ -185,8 +143,6 @@ async function piped<T>(path: string): Promise<T> {
 }
 
 // ================== Invidious (secondary fallback) ==================
-// Public YouTube frontend mirrors. No key, no quota. Used when all
-// Piped instances fail, before falling back to the official Data API.
 
 const INVIDIOUS_INSTANCES = [
   "https://invidious.nerdvpn.de",
@@ -277,6 +233,8 @@ async function invidious<T>(path: string): Promise<T> {
   throw lastErr ?? new Error("All Invidious instances failed");
 }
 
+// ================== Trending ==================
+
 export const getTrending = createServerFn({ method: "GET" })
   .inputValidator((d: { category?: string; region?: string }) => ({
     category: d?.category ?? "All",
@@ -285,33 +243,28 @@ export const getTrending = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<Video[]> => {
     setResponseHeader("cache-control", "public, max-age=300, s-maxage=600, stale-while-revalidate=1800");
 
-    // Primary: Piped trending
-    if (data.category === "All" || data.category === "Trending") {
-      try {
+    const isTrending = data.category === "All" || data.category === "Trending";
+
+    // Primary: Piped
+    try {
+      if (isTrending) {
         const items = await piped<PipedItem[]>(`/trending?region=${encodeURIComponent(data.region)}`);
         const videos = items.map(pipedToVideo).filter((v): v is Video => Boolean(v));
         if (videos.length) return videos.slice(0, 32);
-      } catch (e) {
-        console.warn("Piped trending failed, falling back to YouTube API:", (e as Error).message);
-      }
-    } else {
-      // Category → treat as a Piped search sorted by relevance
-      try {
+      } else {
         const res = await piped<{ items?: PipedItem[] }>(
           `/search?q=${encodeURIComponent(data.category)}&filter=videos`,
         );
-        const videos = (res.items ?? [])
-          .map(pipedToVideo)
-          .filter((v): v is Video => Boolean(v));
+        const videos = (res.items ?? []).map(pipedToVideo).filter((v): v is Video => Boolean(v));
         if (videos.length) return videos.slice(0, 32);
-      } catch (e) {
-        console.warn("Piped category search failed, falling back:", (e as Error).message);
       }
+    } catch (e) {
+      console.warn("Piped trending failed:", (e as Error).message);
     }
 
-    // Secondary: Invidious (no key, no quota)
+    // Secondary: Invidious
     try {
-      if (data.category === "All" || data.category === "Trending") {
+      if (isTrending) {
         const items = await invidious<InvVideoItem[]>(
           `/api/v1/trending?region=${encodeURIComponent(data.region)}`,
         );
@@ -325,43 +278,13 @@ export const getTrending = createServerFn({ method: "GET" })
         if (videos.length) return videos.slice(0, 32);
       }
     } catch (e) {
-      console.warn("Invidious trending failed, falling back to YouTube API:", (e as Error).message);
+      console.warn("Invidious trending failed:", (e as Error).message);
     }
 
-    // Fallback: official YouTube Data API
-    try {
-      if (data.category === "All" || data.category === "Trending") {
-        const j = await yt("videos", {
-          part: "snippet,contentDetails,statistics",
-          chart: "mostPopular",
-          regionCode: data.region,
-          maxResults: "32",
-        });
-        return (j.items ?? []).map(toVideo);
-      }
-      const s = await yt("search", {
-        part: "snippet",
-        q: data.category,
-        type: "video",
-        maxResults: "32",
-        order: "viewCount",
-        regionCode: data.region,
-      });
-      const ids = (s.items ?? [])
-        .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
-        .filter((x): x is string => Boolean(x));
-      if (!ids.length) return [];
-      const v = await yt("videos", {
-        part: "snippet,contentDetails,statistics",
-        id: ids.join(","),
-      });
-      return (v.items ?? []).map(toVideo);
-    } catch (e) {
-      console.error("Trending fallback failed", e);
-      return [];
-    }
+    return [];
   });
 
+// ================== Search ==================
 
 export const searchYouTube = createServerFn({ method: "GET" })
   .inputValidator((d: { q: string; limit?: number; pageToken?: string }) => ({
@@ -373,7 +296,7 @@ export const searchYouTube = createServerFn({ method: "GET" })
     if (!data.q.trim()) return { items: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=1800, stale-while-revalidate=3600");
 
-    // Primary: Piped search (no quota)
+    // Primary: Piped
     try {
       const path = data.pageToken
         ? `/nextpage/search?nextpage=${encodeURIComponent(data.pageToken)}&q=${encodeURIComponent(data.q)}&filter=videos`
@@ -391,11 +314,10 @@ export const searchYouTube = createServerFn({ method: "GET" })
         };
       }
     } catch (e) {
-      console.warn("Piped search failed, falling back to YouTube API:", (e as Error).message);
+      console.warn("Piped search failed:", (e as Error).message);
     }
 
-    // Secondary: Invidious search (no quota). Only used for first page —
-    // Invidious pagination uses ?page=N which we don't track here.
+    // Secondary: Invidious (first page only — pagination uses ?page=N which we don't track)
     if (!data.pageToken) {
       try {
         const items = await invidious<InvVideoItem[]>(
@@ -408,44 +330,14 @@ export const searchYouTube = createServerFn({ method: "GET" })
           .slice(0, data.limit);
         if (mapped.length) return { items: mapped };
       } catch (e) {
-        console.warn("Invidious search failed, falling back to YouTube API:", (e as Error).message);
+        console.warn("Invidious search failed:", (e as Error).message);
       }
     }
 
-    // Fallback: official YouTube Data API
-    const params: Record<string, string> = {
-      part: "snippet",
-      q: data.q,
-      type: "video",
-      maxResults: String(data.limit),
-    };
-    // pageToken from Piped is not compatible with YT API — only pass when it looks like a YT token
-    if (data.pageToken && !data.pageToken.startsWith("{")) params.pageToken = data.pageToken;
-    const url = new URL(`${API}/search`);
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-    url.searchParams.set("key", process.env.GOOGLE_API_KEY ?? "");
-    const res = await fetch(url.toString());
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.error(`YouTube search failed (${res.status})`, body);
-      const quotaExceeded = res.status === 429 || res.status === 403 || /quota/i.test(body);
-      return { items: [], quotaExceeded };
-    }
-    const s = (await res.json()) as { items?: YTItem[]; nextPageToken?: string; prevPageToken?: string };
-    const ids = (s.items ?? [])
-      .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
-      .filter((x): x is string => Boolean(x));
-    if (!ids.length) return { items: [], nextPageToken: s.nextPageToken, prevPageToken: s.prevPageToken };
-    const v = await yt("videos", {
-      part: "snippet,contentDetails,statistics",
-      id: ids.join(","),
-    });
-    return {
-      items: (v.items ?? []).map(toVideo),
-      nextPageToken: s.nextPageToken,
-      prevPageToken: s.prevPageToken,
-    };
+    return { items: [] };
   });
+
+// ================== Search suggestions ==================
 
 export const suggestSearch = createServerFn({ method: "GET" })
   .inputValidator((d: { q: string }) => ({ q: String(d?.q ?? "").slice(0, 100) }))
@@ -464,13 +356,15 @@ export const suggestSearch = createServerFn({ method: "GET" })
     }
   });
 
+// ================== Watch page (video + related) ==================
+
 export const getYouTubeVideo = createServerFn({ method: "GET" })
   .inputValidator((d: { id: string }) => ({ id: String(d?.id ?? "") }))
   .handler(async ({ data }): Promise<{ video: Video | null; related: Video[] }> => {
     if (!data.id) return { video: null, related: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=3600, stale-while-revalidate=86400");
 
-    // Primary: Piped /streams/{id} — gives video details + related streams in one call, no quota.
+    // Primary: Piped /streams/{id}
     try {
       const s = await piped<{
         title?: string;
@@ -486,15 +380,6 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
         livestream?: boolean;
       }>(`/streams/${encodeURIComponent(data.id)}`);
 
-      const descText = (s.description ?? "")
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<[^>]+>/g, "")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'");
-
       const video: Video = {
         id: data.id,
         title: s.title ?? "",
@@ -504,7 +389,7 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
         posted: s.uploadDate ?? "",
         duration: s.livestream ? "LIVE" : formatSeconds(s.duration ?? 0),
         thumbnail: s.thumbnailUrl || `https://i.ytimg.com/vi/${data.id}/hqdefault.jpg`,
-        description: descText,
+        description: stripHtml(s.description ?? ""),
       };
 
       const related = (s.relatedStreams ?? [])
@@ -515,10 +400,10 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
 
       return { video, related };
     } catch (e) {
-      console.warn("Piped /streams failed, falling back to YouTube API:", (e as Error).message);
+      console.warn("Piped /streams failed:", (e as Error).message);
     }
 
-    // Secondary: Invidious /api/v1/videos/{id} — video details + recommendedVideos.
+    // Secondary: Invidious /api/v1/videos/{id}
     try {
       const s = await invidious<{
         title?: string;
@@ -534,15 +419,6 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
         liveNow?: boolean;
       }>(`/api/v1/videos/${encodeURIComponent(data.id)}`);
 
-      const descText = (s.description ?? "")
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<[^>]+>/g, "")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'");
-
       const video: Video = {
         id: data.id,
         title: s.title ?? "",
@@ -555,7 +431,7 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
         posted: s.publishedText ?? "",
         duration: s.liveNow ? "LIVE" : formatSeconds(s.lengthSeconds ?? 0),
         thumbnail: invThumb(s.videoThumbnails, data.id),
-        description: descText,
+        description: stripHtml(s.description ?? ""),
       };
 
       const related = (s.recommendedVideos ?? [])
@@ -565,64 +441,13 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
 
       return { video, related };
     } catch (e) {
-      console.warn("Invidious /videos failed, falling back to YouTube API:", (e as Error).message);
+      console.warn("Invidious /videos failed:", (e as Error).message);
     }
 
-    // Fallback: official YouTube Data API
-    try {
-      const v = await yt("videos", { part: "snippet,contentDetails,statistics", id: data.id });
-      const item = v.items?.[0];
-      if (!item) return { video: null, related: [] };
-      const video = toVideo(item);
-
-      const channelId = item.snippet.channelId;
-      const [channelRes, trendingRes] = await Promise.allSettled([
-        yt("search", {
-          part: "snippet",
-          channelId,
-          type: "video",
-          maxResults: "12",
-          order: "date",
-        }),
-        yt("videos", {
-          part: "snippet,contentDetails,statistics",
-          chart: "mostPopular",
-          regionCode: "US",
-          maxResults: "12",
-        }),
-      ]);
-
-      let related: Video[] = [];
-      if (channelRes.status === "fulfilled") {
-        const ids = (channelRes.value.items ?? [])
-          .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
-          .filter((id): id is string => Boolean(id) && id !== data.id);
-        if (ids.length) {
-          try {
-            const rv = await yt("videos", {
-              part: "snippet,contentDetails,statistics",
-              id: ids.join(","),
-            });
-            related = (rv.items ?? []).map(toVideo);
-          } catch (err) {
-            console.error("related-channel details failed", err);
-          }
-        }
-      }
-      if (related.length < 8 && trendingRes.status === "fulfilled") {
-        const extras = (trendingRes.value.items ?? [])
-          .map(toVideo)
-          .filter((x) => x.id !== data.id && !related.some((r) => r.id === x.id));
-        related = [...related, ...extras].slice(0, 12);
-      }
-
-      return { video, related };
-    } catch (err) {
-      console.error("Watch fallback failed", err);
-      return { video: null, related: [] };
-    }
+    return { video: null, related: [] };
   });
 
+// ================== Comments ==================
 
 export interface WatchComment {
   id: string;
@@ -669,14 +494,7 @@ export const getComments = createServerFn({ method: "GET" })
         id: c.commentId ?? Math.random().toString(36).slice(2),
         author: c.author ?? "",
         avatar: c.thumbnail || avatar(c.author ?? "user"),
-        text: (c.commentText ?? "")
-          .replace(/<br\s*\/?>/gi, "\n")
-          .replace(/<[^>]+>/g, "")
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'"),
+        text: stripHtml(c.commentText ?? ""),
         time: c.commentedTime ?? "",
         likes: typeof c.likeCount === "number" ? c.likeCount : 0,
         replies: typeof c.replyCount === "number" ? c.replyCount : 0,
@@ -684,29 +502,26 @@ export const getComments = createServerFn({ method: "GET" })
         hearted: Boolean(c.hearted),
         verified: Boolean(c.verified),
       }));
-      return {
-        comments,
-        nextPageToken: res.nextpage ? String(res.nextpage) : undefined,
-      };
+      if (comments.length) {
+        return { comments, nextPageToken: res.nextpage ? String(res.nextpage) : undefined };
+      }
     } catch (e) {
       console.warn("Piped comments failed, trying Invidious:", (e as Error).message);
     }
 
-    // Secondary: Invidious comments
+    // Secondary: Invidious
     try {
       interface InvComment {
         commentId?: string;
         author?: string;
         authorThumbnails?: { url: string; width: number }[];
         content?: string;
-        contentHtml?: string;
         publishedText?: string;
         likeCount?: number;
         replies?: { replyCount?: number };
         isPinned?: boolean;
         creatorHeart?: unknown;
         verified?: boolean;
-        authorIsChannelOwner?: boolean;
       }
       const res = await invidious<{ comments?: InvComment[]; continuation?: string }>(
         `/api/v1/comments/${encodeURIComponent(data.id)}?source=youtube`,
@@ -715,14 +530,7 @@ export const getComments = createServerFn({ method: "GET" })
         id: c.commentId ?? Math.random().toString(36).slice(2),
         author: c.author ?? "",
         avatar: invAvatar(c.authorThumbnails, c.author ?? "user"),
-        text: (c.content ?? "")
-          .replace(/<br\s*\/?>/gi, "\n")
-          .replace(/<[^>]+>/g, "")
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'"),
+        text: stripHtml(c.content ?? ""),
         time: c.publishedText ?? "",
         likes: typeof c.likeCount === "number" ? c.likeCount : 0,
         replies: typeof c.replies?.replyCount === "number" ? c.replies.replyCount : 0,
@@ -737,6 +545,7 @@ export const getComments = createServerFn({ method: "GET" })
     }
   });
 
+// ================== Batch video lookup ==================
 
 export const getVideosByIds = createServerFn({ method: "GET" })
   .inputValidator((d: { ids: string[] }) => ({
@@ -744,17 +553,76 @@ export const getVideosByIds = createServerFn({ method: "GET" })
   }))
   .handler(async ({ data }): Promise<Video[]> => {
     if (!data.ids.length) return [];
-    const v = await yt("videos", {
-      part: "snippet,contentDetails,statistics",
-      id: data.ids.join(","),
-    });
+    setResponseHeader("cache-control", "public, max-age=600, s-maxage=3600, stale-while-revalidate=86400");
+
+    // Fan out to Piped /streams/{id} in parallel; fall back per-id to Invidious.
+    const results = await Promise.allSettled(
+      data.ids.map(async (id): Promise<Video | null> => {
+        try {
+          const s = await piped<{
+            title?: string;
+            uploader?: string;
+            uploaderAvatar?: string;
+            duration?: number;
+            views?: number;
+            thumbnailUrl?: string;
+            uploadDate?: string;
+            livestream?: boolean;
+            description?: string;
+          }>(`/streams/${encodeURIComponent(id)}`);
+          return {
+            id,
+            title: s.title ?? "",
+            channel: s.uploader ?? "",
+            channelAvatar: s.uploaderAvatar || avatar(s.uploader ?? id),
+            views: typeof s.views === "number" && s.views >= 0 ? formatViews(String(s.views)) : "—",
+            posted: s.uploadDate ?? "",
+            duration: s.livestream ? "LIVE" : formatSeconds(s.duration ?? 0),
+            thumbnail: s.thumbnailUrl || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+            description: stripHtml(s.description ?? ""),
+          };
+        } catch {
+          try {
+            const s = await invidious<{
+              title?: string;
+              author?: string;
+              authorThumbnails?: { url: string; width: number }[];
+              lengthSeconds?: number;
+              viewCount?: number;
+              videoThumbnails?: { url: string; quality?: string; width?: number }[];
+              publishedText?: string;
+              liveNow?: boolean;
+              description?: string;
+            }>(`/api/v1/videos/${encodeURIComponent(id)}`);
+            return {
+              id,
+              title: s.title ?? "",
+              channel: s.author ?? "",
+              channelAvatar: invAvatar(s.authorThumbnails, s.author ?? id),
+              views:
+                typeof s.viewCount === "number" && s.viewCount >= 0
+                  ? formatViews(String(s.viewCount))
+                  : "—",
+              posted: s.publishedText ?? "",
+              duration: s.liveNow ? "LIVE" : formatSeconds(s.lengthSeconds ?? 0),
+              thumbnail: invThumb(s.videoThumbnails, id),
+              description: stripHtml(s.description ?? ""),
+            };
+          } catch {
+            return null;
+          }
+        }
+      }),
+    );
+
     const map = new Map<string, Video>();
-    for (const it of v.items ?? []) {
-      const vid = toVideo(it);
-      map.set(vid.id, vid);
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) map.set(r.value.id, r.value);
     }
     return data.ids.map((id) => map.get(id)).filter((x): x is Video => Boolean(x));
   });
+
+// ================== Shorts ==================
 
 export const getShorts = createServerFn({ method: "GET" })
   .inputValidator((d: { q?: string; pageToken?: string }) => ({
@@ -763,44 +631,43 @@ export const getShorts = createServerFn({ method: "GET" })
   }))
   .handler(async ({ data }): Promise<{ items: Video[]; nextPageToken?: string }> => {
     setResponseHeader("cache-control", "public, max-age=300, s-maxage=900, stale-while-revalidate=3600");
-    const params: Record<string, string> = {
-      part: "snippet",
-      q: data.q,
-      type: "video",
-      videoDuration: "short",
-      maxResults: "24",
-      order: "viewCount",
-    };
-    if (data.pageToken) params.pageToken = data.pageToken;
-    const url = new URL(`${API}/search`);
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-    url.searchParams.set("key", process.env.GOOGLE_API_KEY!);
-    const res = await fetch(url.toString());
-    if (!res.ok) {
-      console.error(`YouTube shorts search failed (${res.status})`);
+
+    // Primary: Piped search, then filter to short-duration videos.
+    try {
+      const path = data.pageToken
+        ? `/nextpage/search?nextpage=${encodeURIComponent(data.pageToken)}&q=${encodeURIComponent(data.q)}&filter=videos`
+        : `/search?q=${encodeURIComponent(data.q + " shorts")}&filter=videos`;
+      const res = await piped<{ items?: PipedItem[]; nextpage?: string | null }>(path);
+      const items = (res.items ?? [])
+        .filter((it) => it.isShort || (typeof it.duration === "number" && it.duration > 0 && it.duration <= 60))
+        .map(pipedToVideo)
+        .filter((v): v is Video => Boolean(v))
+        .slice(0, 24);
+      if (items.length) {
+        return { items, nextPageToken: res.nextpage ? String(res.nextpage) : undefined };
+      }
+    } catch (e) {
+      console.warn("Piped shorts search failed:", (e as Error).message);
+    }
+
+    // Secondary: Invidious
+    try {
+      const items = await invidious<InvVideoItem[]>(
+        `/api/v1/search?q=${encodeURIComponent(data.q + " shorts")}&type=video&duration=short`,
+      );
+      const mapped = items
+        .filter((it) => typeof it.lengthSeconds === "number" && it.lengthSeconds > 0 && it.lengthSeconds <= 60)
+        .map(invToVideo)
+        .filter((v): v is Video => Boolean(v))
+        .slice(0, 24);
+      return { items: mapped };
+    } catch (e) {
+      console.warn("Invidious shorts failed:", (e as Error).message);
       return { items: [] };
     }
-    const s = (await res.json()) as { items?: YTItem[]; nextPageToken?: string };
-    const ids = (s.items ?? [])
-      .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
-      .filter((x): x is string => Boolean(x));
-    if (!ids.length) return { items: [], nextPageToken: s.nextPageToken };
-    const v = await yt("videos", {
-      part: "snippet,contentDetails,statistics",
-      id: ids.join(","),
-    });
-    // Keep only genuinely short videos (<= 60s)
-    const items = (v.items ?? [])
-      .filter((it) => {
-        const iso = it.contentDetails?.duration ?? "";
-        const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-        if (!m) return false;
-        const h = Number(m[1] ?? 0), min = Number(m[2] ?? 0), s = Number(m[3] ?? 0);
-        return h === 0 && min === 0 && s > 0 && s <= 60;
-      })
-      .map(toVideo);
-    return { items, nextPageToken: s.nextPageToken };
   });
+
+// ================== Recommendations from likes + searches ==================
 
 export const getRecommendedFromLikes = createServerFn({ method: "GET" })
   .inputValidator((d: { ids?: string[]; queries?: string[] }) => ({
@@ -811,90 +678,95 @@ export const getRecommendedFromLikes = createServerFn({ method: "GET" })
     if (!data.ids.length && !data.queries.length) return [];
     setResponseHeader("cache-control", "private, max-age=300, stale-while-revalidate=1800");
 
-    // Fetch liked videos to get their channelIds, titles, tags
-    const seedItems = data.ids.length
-      ? ((await yt("videos", { part: "snippet", id: data.ids.join(",") })).items ?? [])
-      : [];
-
-    const channelIds = Array.from(
-      new Set(seedItems.map((it) => it.snippet.channelId).filter((x): x is string => Boolean(x))),
-    ).slice(0, 3);
-
-    // Build lightweight search queries from titles: strip punctuation, drop stopwords,
-    // keep the 3-4 most meaningful words per liked video.
     const stop = new Set([
       "the","a","an","of","and","or","to","in","on","for","with","is","are","was",
       "were","this","that","by","at","from","how","why","what","official","video",
       "feat","ft","vs","new","best","top","full","hd","4k","live","2024","2025","2026",
     ]);
-    const titleQueries = seedItems.map((it) => {
-      const words = it.snippet.title
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s]/gu, " ")
-        .split(/\s+/)
-        .filter((w) => w.length > 2 && !stop.has(w));
-      return words.slice(0, 4).join(" ");
-    });
-    const queries = Array.from(
-      new Set([...titleQueries, ...data.queries].map((q) => q.trim()).filter(Boolean)),
-    ).slice(0, 6);
 
-    // In parallel: recent uploads from each seed channel + keyword searches across YouTube
-    const [channelResults, keywordResults] = await Promise.all([
+    // Fetch each liked video via Piped /streams to get title + channel id
+    const seeds = await Promise.allSettled(
+      data.ids.map((id) =>
+        piped<{ title?: string; uploaderUrl?: string; relatedStreams?: PipedItem[] }>(
+          `/streams/${encodeURIComponent(id)}`,
+        ),
+      ),
+    );
+
+    const titleQueries: string[] = [];
+    const channelIds: string[] = [];
+    const relatedFromSeeds: Video[] = [];
+
+    for (const r of seeds) {
+      if (r.status !== "fulfilled") continue;
+      const s = r.value;
+      if (s.title) {
+        const words = s.title
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}\s]/gu, " ")
+          .split(/\s+/)
+          .filter((w) => w.length > 2 && !stop.has(w));
+        const q = words.slice(0, 4).join(" ");
+        if (q) titleQueries.push(q);
+      }
+      const cid = channelIdFromUrl(s.uploaderUrl);
+      if (cid) channelIds.push(cid);
+      // Use related streams from the seed video as a cheap recommendation source
+      for (const it of s.relatedStreams ?? []) {
+        const v = pipedToVideo(it);
+        if (v && !data.ids.includes(v.id)) relatedFromSeeds.push(v);
+      }
+    }
+
+    const queries = Array.from(new Set([...titleQueries, ...data.queries].map((q) => q.trim()).filter(Boolean))).slice(0, 6);
+    const uniqueChannels = Array.from(new Set(channelIds)).slice(0, 3);
+
+    // Fan out keyword searches + channel uploads
+    const [keywordResults, channelResults] = await Promise.all([
       Promise.allSettled(
-        channelIds.map((cid) =>
-          yt("search", {
-            part: "snippet",
-            channelId: cid,
-            type: "video",
-            maxResults: "5",
-            order: "date",
-          }),
+        queries.map((q) =>
+          piped<{ items?: PipedItem[] }>(`/search?q=${encodeURIComponent(q)}&filter=videos`),
         ),
       ),
       Promise.allSettled(
-        queries.map((q) =>
-          yt("search", {
-            part: "snippet",
-            q,
-            type: "video",
-            maxResults: "8",
-            order: "relevance",
-          }),
+        uniqueChannels.map((cid) =>
+          piped<{ relatedStreams?: PipedItem[] }>(`/channel/${encodeURIComponent(cid)}`),
         ),
       ),
     ]);
 
-    const foundIds = new Set<string>();
-    const collect = (results: PromiseSettledResult<{ items?: YTItem[] }>[]) => {
-      for (const r of results) {
-        if (r.status !== "fulfilled") continue;
-        for (const it of r.value.items ?? []) {
-          const id = typeof it.id === "string" ? it.id : it.id.videoId;
-          if (id && !data.ids.includes(id)) foundIds.add(id);
-        }
+    const collected: Video[] = [...relatedFromSeeds];
+    for (const r of keywordResults) {
+      if (r.status !== "fulfilled") continue;
+      for (const it of r.value.items ?? []) {
+        const v = pipedToVideo(it);
+        if (v && !data.ids.includes(v.id)) collected.push(v);
       }
-    };
-    collect(channelResults);
-    collect(keywordResults);
-
-    const ids = Array.from(foundIds).slice(0, 40);
-    if (!ids.length) return [];
-    const v = await yt("videos", {
-      part: "snippet,contentDetails,statistics",
-      id: ids.join(","),
-    });
-    // Shuffle so channel and keyword picks are interleaved
-    const items = (v.items ?? []).map(toVideo);
-    for (let i = items.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [items[i], items[j]] = [items[j], items[i]];
     }
-    return items.slice(0, 24);
+    for (const r of channelResults) {
+      if (r.status !== "fulfilled") continue;
+      for (const it of r.value.relatedStreams ?? []) {
+        const v = pipedToVideo(it);
+        if (v && !data.ids.includes(v.id)) collected.push(v);
+      }
+    }
+
+    // Dedupe and shuffle
+    const seen = new Set<string>();
+    const unique: Video[] = [];
+    for (const v of collected) {
+      if (seen.has(v.id)) continue;
+      seen.add(v.id);
+      unique.push(v);
+    }
+    for (let i = unique.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [unique[i], unique[j]] = [unique[j], unique[i]];
+    }
+    return unique.slice(0, 24);
   });
 
-
-
+// ================== Live ==================
 
 export const getLive = createServerFn({ method: "GET" })
   .inputValidator((d: { q?: string }) => ({
@@ -902,32 +774,38 @@ export const getLive = createServerFn({ method: "GET" })
   }))
   .handler(async ({ data }): Promise<Video[]> => {
     setResponseHeader("cache-control", "public, max-age=60, s-maxage=120, stale-while-revalidate=300");
-    const params: Record<string, string> = {
-      part: "snippet",
-      type: "video",
-      eventType: "live",
-      maxResults: "24",
-      order: "viewCount",
-      q: data.q || "live",
-    };
-    const s = await yt("search", params);
-    const ids = (s.items ?? [])
-      .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
-      .filter((x): x is string => Boolean(x));
-    if (!ids.length) return [];
-    const v = await yt("videos", {
-      part: "snippet,contentDetails,statistics,liveStreamingDetails",
-      id: ids.join(","),
-    });
-    return (v.items ?? []).map((it) => {
-      const vid = toVideo(it);
-      // Mark as LIVE with concurrent viewer count when available
-      const live = (it as unknown as { liveStreamingDetails?: { concurrentViewers?: string } }).liveStreamingDetails;
-      const viewers = live?.concurrentViewers;
-      return {
-        ...vid,
-        duration: "LIVE",
-        views: viewers ? `${formatViews(viewers)} watching` : vid.views,
-      };
-    });
+    const q = data.q || "live";
+
+    // Primary: Invidious has a proper live filter (features=live)
+    try {
+      const items = await invidious<InvVideoItem[]>(
+        `/api/v1/search?q=${encodeURIComponent(q)}&type=video&features=live&sort_by=view_count`,
+      );
+      const mapped = items
+        .filter((it) => it.liveNow)
+        .map(invToVideo)
+        .filter((v): v is Video => Boolean(v))
+        .map((v) => ({ ...v, duration: "LIVE" }))
+        .slice(0, 24);
+      if (mapped.length) return mapped;
+    } catch (e) {
+      console.warn("Invidious live search failed:", (e as Error).message);
+    }
+
+    // Secondary: Piped search — no strict live filter, so infer from duration<=0
+    try {
+      const res = await piped<{ items?: PipedItem[] }>(
+        `/search?q=${encodeURIComponent(q + " live")}&filter=videos`,
+      );
+      const items = (res.items ?? [])
+        .filter((it) => !it.duration || it.duration <= 0)
+        .map(pipedToVideo)
+        .filter((v): v is Video => Boolean(v))
+        .map((v) => ({ ...v, duration: "LIVE" }))
+        .slice(0, 24);
+      return items;
+    } catch (e) {
+      console.warn("Piped live search failed:", (e as Error).message);
+      return [];
+    }
   });
