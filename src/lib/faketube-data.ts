@@ -57,5 +57,24 @@ export const VIDEOS: Video[] = RAW.map(([id, title, channel, views, posted, dura
 }));
 
 export const getVideo = (id: string) => VIDEOS.find((v) => v.id === id);
-export const relatedVideos = (id: string) =>
-  VIDEOS.filter((v) => v.id !== id).slice(0, 10);
+
+export const relatedVideos = (id: string) => {
+  const current = getVideo(id);
+  const others = VIDEOS.filter((v) => v.id !== id);
+  if (!current) return others.slice(0, 12);
+  const sameChannel = others.filter((v) => v.channel === current.channel);
+  const rest = others.filter((v) => v.channel !== current.channel);
+  // deterministic pseudo-shuffle so SSR + client match
+  const seeded = [...rest].sort((a, b) => (a.id + id).localeCompare(b.id + id));
+  return [...sameChannel, ...seeded].slice(0, 12);
+};
+
+export const searchVideos = (query: string, limit = 8): Video[] => {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return VIDEOS.filter(
+    (v) =>
+      v.title.toLowerCase().includes(q) ||
+      v.channel.toLowerCase().includes(q),
+  ).slice(0, limit);
+};
