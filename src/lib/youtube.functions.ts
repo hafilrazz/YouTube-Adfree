@@ -689,7 +689,50 @@ export const getComments = createServerFn({ method: "GET" })
         nextPageToken: res.nextpage ? String(res.nextpage) : undefined,
       };
     } catch (e) {
-      console.warn("Piped comments failed:", (e as Error).message);
+      console.warn("Piped comments failed, trying Invidious:", (e as Error).message);
+    }
+
+    // Secondary: Invidious comments
+    try {
+      interface InvComment {
+        commentId?: string;
+        author?: string;
+        authorThumbnails?: { url: string; width: number }[];
+        content?: string;
+        contentHtml?: string;
+        publishedText?: string;
+        likeCount?: number;
+        replies?: { replyCount?: number };
+        isPinned?: boolean;
+        creatorHeart?: unknown;
+        verified?: boolean;
+        authorIsChannelOwner?: boolean;
+      }
+      const res = await invidious<{ comments?: InvComment[]; continuation?: string }>(
+        `/api/v1/comments/${encodeURIComponent(data.id)}?source=youtube`,
+      );
+      const comments: WatchComment[] = (res.comments ?? []).map((c) => ({
+        id: c.commentId ?? Math.random().toString(36).slice(2),
+        author: c.author ?? "",
+        avatar: invAvatar(c.authorThumbnails, c.author ?? "user"),
+        text: (c.content ?? "")
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<[^>]+>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'"),
+        time: c.publishedText ?? "",
+        likes: typeof c.likeCount === "number" ? c.likeCount : 0,
+        replies: typeof c.replies?.replyCount === "number" ? c.replies.replyCount : 0,
+        pinned: Boolean(c.isPinned),
+        hearted: Boolean(c.creatorHeart),
+        verified: Boolean(c.verified),
+      }));
+      return { comments, nextPageToken: res.continuation };
+    } catch (e) {
+      console.warn("Invidious comments failed:", (e as Error).message);
       return { comments: [] };
     }
   });
