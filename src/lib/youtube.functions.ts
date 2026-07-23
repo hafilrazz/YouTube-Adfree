@@ -394,6 +394,24 @@ export const searchYouTube = createServerFn({ method: "GET" })
       console.warn("Piped search failed, falling back to YouTube API:", (e as Error).message);
     }
 
+    // Secondary: Invidious search (no quota). Only used for first page —
+    // Invidious pagination uses ?page=N which we don't track here.
+    if (!data.pageToken) {
+      try {
+        const items = await invidious<InvVideoItem[]>(
+          `/api/v1/search?q=${encodeURIComponent(data.q)}&type=video`,
+        );
+        const mapped = items
+          .filter((it) => !it.type || it.type === "video")
+          .map(invToVideo)
+          .filter((v): v is Video => Boolean(v))
+          .slice(0, data.limit);
+        if (mapped.length) return { items: mapped };
+      } catch (e) {
+        console.warn("Invidious search failed, falling back to YouTube API:", (e as Error).message);
+      }
+    }
+
     // Fallback: official YouTube Data API
     const params: Record<string, string> = {
       part: "snippet",
