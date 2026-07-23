@@ -592,7 +592,34 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
       console.warn("Invidious /videos failed:", (e as Error).message);
     }
 
+    // Tertiary: YouTube Data API
+    try {
+      const d = await ytFetch<{ items?: YTVideoItem[] }>(
+        `/videos?part=snippet,contentDetails,statistics,liveStreamingDetails&id=${encodeURIComponent(data.id)}`,
+      );
+      const it = d.items?.[0];
+      if (it) {
+        const video = ytVideoToVideo(it);
+        if (video) {
+          let related: Video[] = [];
+          try {
+            const q = video.title.split(/\s+/).slice(0, 5).join(" ");
+            const s = await ytFetch<{ items?: YTSearchItem[] }>(
+              `/search?part=snippet&type=video&maxResults=20&q=${encodeURIComponent(q)}`,
+            );
+            related = (s.items ?? [])
+              .map(ytSearchToVideo)
+              .filter((v): v is Video => Boolean(v) && v!.id !== data.id);
+          } catch {}
+          return { video, related };
+        }
+      }
+    } catch (e) {
+      console.warn("YT API video failed:", (e as Error).message);
+    }
+
     return { video: null, related: [] };
+
   });
 
 // ================== Comments ==================
