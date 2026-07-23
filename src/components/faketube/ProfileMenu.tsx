@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { User, Check, Plus, Pencil, Trash2, X, Camera } from "lucide-react";
+import { User, Check, Plus, Pencil, Trash2, X, Camera, Moon, Sun } from "lucide-react";
 import { useProfiles, MAX_PROFILES, type Profile } from "@/lib/profiles";
+import { useTheme } from "@/lib/use-theme";
 
 function Avatar({ profile, size = 32 }: { profile: Profile | undefined; size?: number }) {
   const s = { width: size, height: size };
@@ -43,6 +44,7 @@ async function fileToDataUrl(file: File): Promise<string> {
 
 export function ProfileMenu() {
   const { profiles, active, addProfile, updateProfile, removeProfile, switchProfile } = useProfiles();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Profile | "new" | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -101,6 +103,13 @@ export function ProfileMenu() {
             >
               <Plus className="h-4 w-4" />
               Add profile ({profiles.length}/{MAX_PROFILES})
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-100 text-sm"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              Appearance: {theme === "dark" ? "Dark" : "Light"}
             </button>
           </div>
         </div>

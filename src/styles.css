@@ -142,3 +142,25 @@
     color: var(--color-foreground);
   }
 }
+
+/* Dark-mode overrides for the FakeTube UI which uses hardcoded neutral utilities. */
+.dark .bg-white { background-color: #0f0f0f !important; }
+.dark .bg-neutral-50 { background-color: #1a1a1a !important; }
+.dark .bg-neutral-100 { background-color: #272727 !important; }
+.dark .bg-neutral-200 { background-color: #333 !important; }
+.dark .bg-neutral-900 { background-color: #f1f1f1 !important; }
+.dark .hover\:bg-neutral-50:hover { background-color: #1f1f1f !important; }
+.dark .hover\:bg-neutral-100:hover { background-color: #272727 !important; }
+.dark .hover\:bg-neutral-200:hover { background-color: #333 !important; }
+.dark .hover\:bg-neutral-700:hover { background-color: #d4d4d4 !important; }
+.dark .text-neutral-900 { color: #f1f1f1 !important; }
+.dark .text-neutral-700 { color: #d4d4d4 !important; }
+.dark .text-neutral-600 { color: #aaa !important; }
+.dark .text-neutral-500 { color: #909090 !important; }
+.dark .text-neutral-400 { color: #808080 !important; }
+.dark .text-white { color: #0f0f0f !important; }
+.dark .border-neutral-200 { border-color: #303030 !important; }
+.dark .border-neutral-300 { border-color: #3f3f3f !important; }
+.dark .hover\:text-neutral-900:hover { color: #f1f1f1 !important; }
+.dark .bg-red-50 { background-color: #3a1414 !important; }
+
