@@ -457,7 +457,32 @@ export const searchYouTube = createServerFn({ method: "GET" })
       }
     }
 
+    // Tertiary: YouTube Data API
+    try {
+      const s = await ytFetch<{ items?: YTSearchItem[]; nextPageToken?: string; prevPageToken?: string }>(
+        `/search?part=snippet&type=video&maxResults=${data.limit}&q=${encodeURIComponent(data.q)}${data.pageToken ? `&pageToken=${encodeURIComponent(data.pageToken)}` : ""}`,
+      );
+      const ids = (s.items ?? []).map((it) => it.id?.videoId).filter((x): x is string => Boolean(x));
+      if (ids.length) {
+        const d = await ytFetch<{ items?: YTVideoItem[] }>(
+          `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(ids.join(","))}`,
+        );
+        const map = new Map<string, Video>();
+        for (const it of d.items ?? []) {
+          const v = ytVideoToVideo(it);
+          if (v) map.set(v.id, v);
+        }
+        const items = ids.map((id) => map.get(id)).filter((v): v is Video => Boolean(v));
+        if (items.length) return { items, nextPageToken: s.nextPageToken, prevPageToken: s.prevPageToken };
+      }
+    } catch (e) {
+      const msg = (e as Error).message;
+      console.warn("YT API search failed:", msg);
+      if (/403|429|quota/i.test(msg)) return { items: [], quotaExceeded: true };
+    }
+
     return { items: [] };
+
   });
 
 // ================== Search suggestions ==================
