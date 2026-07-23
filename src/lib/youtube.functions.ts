@@ -243,3 +243,47 @@ export const getVideosByIds = createServerFn({ method: "GET" })
     }
     return data.ids.map((id) => map.get(id)).filter((x): x is Video => Boolean(x));
   });
+
+export const getShorts = createServerFn({ method: "GET" })
+  .inputValidator((d: { q?: string; pageToken?: string }) => ({
+    q: String(d?.q ?? "shorts").slice(0, 80),
+    pageToken: d?.pageToken ? String(d.pageToken) : "",
+  }))
+  .handler(async ({ data }): Promise<{ items: Video[]; nextPageToken?: string }> => {
+    setResponseHeader("cache-control", "public, max-age=300, s-maxage=900, stale-while-revalidate=3600");
+    const params: Record<string, string> = {
+      part: "snippet",
+      q: data.q,
+      type: "video",
+      videoDuration: "short",
+      maxResults: "24",
+      order: "viewCount",
+    };
+    if (data.pageToken) params.pageToken = data.pageToken;
+    const url = new URL(`${API}/search`);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    url.searchParams.set("key", process.env.GOOGLE_API_KEY!);
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error(`YouTube shorts search failed (${res.status})`);
+    const s = (await res.json()) as { items?: YTItem[]; nextPageToken?: string };
+    const ids = (s.items ?? [])
+      .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
+      .filter((x): x is string => Boolean(x));
+    if (!ids.length) return { items: [], nextPageToken: s.nextPageToken };
+    const v = await yt("videos", {
+      part: "snippet,contentDetails,statistics",
+      id: ids.join(","),
+    });
+    // Keep only genuinely short videos (<= 60s)
+    const items = (v.items ?? [])
+      .filter((it) => {
+        const iso = it.contentDetails?.duration ?? "";
+        const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+        if (!m) return false;
+        const h = Number(m[1] ?? 0), min = Number(m[2] ?? 0), s = Number(m[3] ?? 0);
+        return h === 0 && min === 0 && s > 0 && s <= 60;
+      })
+      .map(toVideo);
+    return { items, nextPageToken: s.nextPageToken };
+  });
+
