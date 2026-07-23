@@ -981,6 +981,20 @@ export const getLive = createServerFn({ method: "GET" })
       return items;
     } catch (e) {
       console.warn("Piped live search failed:", (e as Error).message);
+    }
+
+    // Tertiary: YouTube Data API
+    try {
+      const s = await ytFetch<{ items?: YTSearchItem[] }>(
+        `/search?part=snippet&type=video&eventType=live&maxResults=24&q=${encodeURIComponent(q)}`,
+      );
+      return (s.items ?? [])
+        .map(ytSearchToVideo)
+        .filter((v): v is Video => Boolean(v))
+        .map((v) => ({ ...v, duration: "LIVE" }));
+    } catch (e) {
+      console.warn("YT API live failed:", (e as Error).message);
       return [];
     }
+
   });
