@@ -242,6 +242,94 @@ async function invidious<T>(path: string, ttlMs = 5 * 60_000): Promise<T> {
   return value;
 }
 
+// ================== YouTube Data API v3 (final fallback) ==================
+// Used only when Piped and Invidious both fail. Requires YOUTUBE_API_KEY.
+
+interface YTSearchItem {
+  id?: { videoId?: string };
+  snippet?: {
+    title?: string;
+    description?: string;
+    channelTitle?: string;
+    channelId?: string;
+    publishedAt?: string;
+    thumbnails?: { high?: { url?: string }; medium?: { url?: string }; default?: { url?: string } };
+    liveBroadcastContent?: string;
+  };
+}
+interface YTVideoItem {
+  id?: string;
+  snippet?: YTSearchItem["snippet"];
+  contentDetails?: { duration?: string };
+  statistics?: { viewCount?: string };
+  liveStreamingDetails?: unknown;
+}
+
+function ytKey(): string | null {
+  const k = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY;
+  return k && k.length > 10 ? k : null;
+}
+
+async function ytFetch<T>(path: string): Promise<T> {
+  const key = ytKey();
+  if (!key) throw new Error("YouTube API key not configured");
+  const sep = path.includes("?") ? "&" : "?";
+  const url = `https://www.googleapis.com/youtube/v3${path}${sep}key=${key}`;
+  const cacheKey = `yt:${path}`;
+  const cached = cacheGet<T>(cacheKey);
+  if (cached) return cached;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`YT API ${res.status}`);
+  const j = (await res.json()) as T;
+  cacheSet(cacheKey, j, 5 * 60_000);
+  return j;
+}
+
+function parseIsoDuration(iso: string | undefined): number {
+  if (!iso) return 0;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (Number(m[1] ?? 0) * 3600) + (Number(m[2] ?? 0) * 60) + Number(m[3] ?? 0);
+}
+
+function ytSearchToVideo(it: YTSearchItem): Video | null {
+  const id = it.id?.videoId;
+  if (!id) return null;
+  const sn = it.snippet ?? {};
+  const isLive = sn.liveBroadcastContent === "live";
+  return {
+    id,
+    title: sn.title ?? "",
+    channel: sn.channelTitle ?? "",
+    channelAvatar: avatar(sn.channelId ?? sn.channelTitle ?? id),
+    views: "—",
+    posted: sn.publishedAt ? timeAgo(sn.publishedAt) : "",
+    duration: isLive ? "LIVE" : "",
+    thumbnail: sn.thumbnails?.high?.url || sn.thumbnails?.medium?.url || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    description: sn.description ?? "",
+  };
+}
+
+function ytVideoToVideo(it: YTVideoItem): Video | null {
+  const id = it.id;
+  if (!id) return null;
+  const sn = it.snippet ?? {};
+  const isLive = sn.liveBroadcastContent === "live" || Boolean(it.liveStreamingDetails);
+  const dur = parseIsoDuration(it.contentDetails?.duration);
+  return {
+    id,
+    title: sn.title ?? "",
+    channel: sn.channelTitle ?? "",
+    channelAvatar: avatar(sn.channelId ?? sn.channelTitle ?? id),
+    views: it.statistics?.viewCount ? formatViews(it.statistics.viewCount) : "—",
+    posted: sn.publishedAt ? timeAgo(sn.publishedAt) : "",
+    duration: isLive ? "LIVE" : formatSeconds(dur),
+    thumbnail: sn.thumbnails?.high?.url || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    description: sn.description ?? "",
+  };
+}
+
+
 // ================== Trending ==================
 
 export const getTrending = createServerFn({ method: "GET" })
