@@ -60,12 +60,24 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
         </button>
       </div>
       <div className="flex items-center gap-2">
+        <Link
+          to="/premium"
+          className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${
+            premium
+              ? "border-amber-300 bg-amber-50 text-amber-800"
+              : "border-neutral-300 hover:bg-neutral-100 text-neutral-900"
+          }`}
+        >
+          {premium ? <Check className="h-4 w-4" /> : <Crown className="h-4 w-4 text-amber-500" />}
+          {premium ? "Premium active" : "Try Premium"}
+        </Link>
         <button className="p-2 rounded-full hover:bg-neutral-100"><Video className="h-5 w-5" /></button>
         <button className="p-2 rounded-full hover:bg-neutral-100"><Bell className="h-5 w-5" /></button>
         <button className="h-8 w-8 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white">
           <User className="h-4 w-4" />
         </button>
       </div>
+
     </header>
   );
 }
