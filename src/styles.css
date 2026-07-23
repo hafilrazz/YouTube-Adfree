@@ -175,3 +175,13 @@ a[href*="lovable.dev"][target="_blank"],
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+/* Ensure fullscreen video fills the entire viewport (avoids side gaps on notched phones) */
+:fullscreen, ::backdrop { background: #000; }
+iframe:fullscreen, video:fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  object-fit: contain;
+}
