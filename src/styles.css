@@ -164,3 +164,14 @@
 .dark .hover\:text-neutral-900:hover { color: #f1f1f1 !important; }
 .dark .bg-red-50 { background-color: #3a1414 !important; }
 
+
+/* Hide Lovable badge */
+a[href*="lovable.dev"][target="_blank"],
+#lovable-badge,
+[data-lovable-badge],
+[class*="lovable-badge"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
