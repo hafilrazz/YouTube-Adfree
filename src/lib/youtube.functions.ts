@@ -138,7 +138,7 @@ export const searchYouTube = createServerFn({ method: "GET" })
     limit: Math.min(Math.max(Number(d?.limit ?? 20), 1), 50),
     pageToken: d?.pageToken ? String(d.pageToken) : "",
   }))
-  .handler(async ({ data }): Promise<{ items: Video[]; nextPageToken?: string; prevPageToken?: string }> => {
+  .handler(async ({ data }): Promise<{ items: Video[]; nextPageToken?: string; prevPageToken?: string; quotaExceeded?: boolean }> => {
     if (!data.q.trim()) return { items: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=1800, stale-while-revalidate=3600");
 
@@ -154,8 +154,10 @@ export const searchYouTube = createServerFn({ method: "GET" })
     url.searchParams.set("key", process.env.GOOGLE_API_KEY!);
     const res = await fetch(url.toString());
     if (!res.ok) {
-      console.error(`YouTube search failed (${res.status})`, await res.text().catch(() => ""));
-      return { items: [] };
+      const body = await res.text().catch(() => "");
+      console.error(`YouTube search failed (${res.status})`, body);
+      const quotaExceeded = res.status === 429 || res.status === 403 || /quota/i.test(body);
+      return { items: [], quotaExceeded };
     }
     const s = (await res.json()) as { items?: YTItem[]; nextPageToken?: string; prevPageToken?: string };
     const ids = (s.items ?? [])
