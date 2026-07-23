@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, ChevronLeft, ChevronRight, Search as SearchIcon } from "lucide-react";
@@ -7,6 +8,7 @@ import { z } from "zod";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { VideoCard } from "@/components/faketube/VideoCard";
 import { searchYouTube } from "@/lib/youtube.functions";
+import { useSearchHistory } from "@/lib/user-data";
 
 const schema = z.object({
   q: fallback(z.string(), "").default(""),
