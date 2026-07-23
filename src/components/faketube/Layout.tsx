@@ -58,9 +58,7 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         <button className="p-2 rounded-full hover:bg-neutral-100 hidden sm:inline-flex"><Video className="h-5 w-5" /></button>
         <button className="p-2 rounded-full hover:bg-neutral-100 hidden sm:inline-flex"><Bell className="h-5 w-5" /></button>
-        <button className="h-8 w-8 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white">
-          <User className="h-4 w-4" />
-        </button>
+        <ProfileMenu />
       </div>
     </header>
   );
