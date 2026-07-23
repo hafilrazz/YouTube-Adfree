@@ -84,7 +84,7 @@ function SearchBox() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const debounced = useDebounced(q, 200);
+  const debounced = useDebounced(q, 250);
   const searchFn = useServerFn(searchYouTube);
   const suggestFn = useServerFn(suggestSearch);
   const { queries: history, remove: removeHistory, clear: clearHistory } = useSearchHistory();

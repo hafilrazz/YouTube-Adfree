@@ -118,29 +118,55 @@ function pipedToVideo(it: PipedItem): Video | null {
   };
 }
 
-async function piped<T>(path: string): Promise<T> {
-  let lastErr: unknown = null;
-  for (const base of PIPED_INSTANCES) {
+// In-memory cache shared across piped() and invidious() calls.
+// Server functions run per-request; this cache lives for the lifetime of the
+// worker instance and dramatically reduces repeat fetches to public mirrors.
+const memCache = new Map<string, { at: number; ttl: number; value: unknown }>();
+function cacheGet<T>(key: string): T | null {
+  const hit = memCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > hit.ttl) {
+    memCache.delete(key);
+    return null;
+  }
+  return hit.value as T;
+}
+function cacheSet(key: string, value: unknown, ttlMs: number): void {
+  memCache.set(key, { at: Date.now(), ttl: ttlMs, value });
+  if (memCache.size > 500) {
+    // Evict oldest ~100 entries
+    const keys = Array.from(memCache.keys()).slice(0, 100);
+    for (const k of keys) memCache.delete(k);
+  }
+}
+
+async function raceFetch(bases: string[], path: string, timeoutMs = 6000): Promise<unknown> {
+  const attempts = bases.map(async (base) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
       const res = await fetch(`${base}${path}`, {
         headers: { "user-agent": "Mozilla/5.0" },
         signal: controller.signal,
       });
+      if (!res.ok) throw new Error(`${base} → ${res.status}`);
+      return await res.json();
+    } finally {
       clearTimeout(timer);
-      if (!res.ok) {
-        lastErr = new Error(`${base} → ${res.status}`);
-        continue;
-      }
-      return (await res.json()) as T;
-    } catch (e) {
-      lastErr = e;
-      continue;
     }
-  }
-  throw lastErr ?? new Error("All Piped instances failed");
+  });
+  return Promise.any(attempts);
 }
+
+async function piped<T>(path: string, ttlMs = 5 * 60_000): Promise<T> {
+  const key = `piped:${path}`;
+  const cached = cacheGet<T>(key);
+  if (cached) return cached;
+  const value = (await raceFetch(PIPED_INSTANCES, path)) as T;
+  cacheSet(key, value, ttlMs);
+  return value;
+}
+
 
 // ================== Invidious (secondary fallback) ==================
 
@@ -209,28 +235,13 @@ function invToVideo(it: InvVideoItem): Video | null {
   };
 }
 
-async function invidious<T>(path: string): Promise<T> {
-  let lastErr: unknown = null;
-  for (const base of INVIDIOUS_INSTANCES) {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(`${base}${path}`, {
-        headers: { "user-agent": "Mozilla/5.0" },
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (!res.ok) {
-        lastErr = new Error(`${base} → ${res.status}`);
-        continue;
-      }
-      return (await res.json()) as T;
-    } catch (e) {
-      lastErr = e;
-      continue;
-    }
-  }
-  throw lastErr ?? new Error("All Invidious instances failed");
+async function invidious<T>(path: string, ttlMs = 5 * 60_000): Promise<T> {
+  const key = `inv:${path}`;
+  const cached = cacheGet<T>(key);
+  if (cached) return cached;
+  const value = (await raceFetch(INVIDIOUS_INSTANCES, path)) as T;
+  cacheSet(key, value, ttlMs);
+  return value;
 }
 
 // ================== Trending ==================
