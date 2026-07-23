@@ -28,12 +28,15 @@ function Home() {
   const { data: recent = [] } = useVideosByIds(recentIds.slice(0, 6));
 
   const { ids: likedIds } = useLikes();
+  const { queries: searchQueries } = useSearchHistory();
   const recFn = useServerFn(getRecommendedFromLikes);
   const seedIds = likedIds.slice(0, 5);
+  const seedQueries = searchQueries.slice(0, 5);
+  const hasSignal = seedIds.length > 0 || seedQueries.length > 0;
   const { data: recommended = [], isLoading, error } = useQuery<Video[]>({
-    queryKey: ["recommended", seedIds.join(",")],
-    queryFn: () => recFn({ data: { ids: seedIds } }),
-    enabled: seedIds.length > 0,
+    queryKey: ["recommended", seedIds.join(","), seedQueries.join("|")],
+    queryFn: () => recFn({ data: { ids: seedIds, queries: seedQueries } }),
+    enabled: hasSignal,
     staleTime: 30 * 60_000,
     gcTime: 60 * 60_000,
   });
