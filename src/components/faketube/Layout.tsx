@@ -13,11 +13,19 @@ export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
   onCategoryChange?: (c: string) => void;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const toggle = () => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+      setMobileOpen((v) => !v);
+    } else {
+      setSidebarOpen((v) => !v);
+    }
+  };
   return (
     <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden">
-      <Header onToggleSidebar={() => setSidebarOpen((v) => !v)} />
+      <Header onToggleSidebar={toggle} />
       <div className="flex pt-14">
-        <Sidebar open={sidebarOpen} />
+        <Sidebar open={sidebarOpen} mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
         <main className={`flex-1 min-w-0 ${sidebarOpen ? "md:ml-60" : "md:ml-20"} transition-all`}>
           {onCategoryChange && (
             <CategoryBar active={activeCategory ?? "All"} onChange={onCategoryChange} />
@@ -28,6 +36,7 @@ export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
     </div>
   );
 }
+
 
 
 function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
@@ -178,7 +187,7 @@ function SearchBox() {
   );
 }
 
-function Sidebar({ open }: { open: boolean }) {
+function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpen: boolean; onCloseMobile: () => void }) {
   const items = [
     { icon: Home, label: "Home", to: "/" as const },
     { icon: Flame, label: "Trending", to: "/" as const },
@@ -194,22 +203,37 @@ function Sidebar({ open }: { open: boolean }) {
     { icon: Clapperboard, label: "Movies", to: "/" as const },
   ];
   return (
-    <aside className={`fixed left-0 top-14 bottom-0 z-40 bg-white ${open ? "w-60" : "w-20"} hidden md:block overflow-y-auto`}>
-      <nav className="py-2">
-        {items.map(({ icon: Icon, label, to }) => (
-          <Link
-            key={label}
-            to={to}
-            className={`flex ${open ? "flex-row items-center gap-6 px-6 py-2" : "flex-col items-center gap-1 py-4"} hover:bg-neutral-100 mx-2 rounded-lg`}
-          >
-            <Icon className="h-5 w-5 shrink-0" />
-            <span className={open ? "text-sm" : "text-[10px]"}>{label}</span>
-          </Link>
-        ))}
-      </nav>
-    </aside>
+    <>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 top-14 z-40 bg-black/40 md:hidden"
+          onClick={onCloseMobile}
+          aria-hidden
+        />
+      )}
+      <aside
+        className={`fixed left-0 top-14 bottom-0 z-50 bg-white overflow-y-auto transition-transform
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0
+          w-60 ${open ? "md:w-60" : "md:w-20"}`}
+      >
+        <nav className="py-2">
+          {items.map(({ icon: Icon, label, to }) => (
+            <Link
+              key={label}
+              to={to}
+              onClick={onCloseMobile}
+              className={`flex md:${open ? "flex-row items-center gap-6 px-6 py-2" : "flex-col items-center gap-1 py-4"} flex-row items-center gap-6 px-6 py-2 hover:bg-neutral-100 mx-2 rounded-lg`}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              <span className={`text-sm md:${open ? "text-sm" : "text-[10px]"}`}>{label}</span>
+            </Link>
+          ))}
+        </nav>
+      </aside>
+    </>
   );
 }
+
 
 function CategoryBar({ active, onChange }: { active: string; onChange: (c: string) => void }) {
   return (
