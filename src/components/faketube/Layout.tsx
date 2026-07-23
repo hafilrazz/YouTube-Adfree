@@ -84,19 +84,28 @@ function SearchBox() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const debounced = useDebounced(q, 300);
+  const debounced = useDebounced(q, 200);
   const searchFn = useServerFn(searchYouTube);
+  const suggestFn = useServerFn(suggestSearch);
   const { queries: history, remove: removeHistory, clear: clearHistory } = useSearchHistory();
+
+  const { data: suggestions = [] } = useQuery<string[]>({
+    queryKey: ["yt-suggest", debounced],
+    queryFn: () => suggestFn({ data: { q: debounced } }),
+    enabled: debounced.trim().length > 0,
+    staleTime: 5 * 60_000,
+  });
 
   const { data, isFetching } = useQuery<{ items: VideoT[]; nextPageToken?: string }>({
     queryKey: ["yt-search", debounced],
-    queryFn: () => searchFn({ data: { q: debounced, limit: 8 } }),
+    queryFn: () => searchFn({ data: { q: debounced, limit: 6 } }),
     enabled: debounced.trim().length > 0,
     staleTime: 60_000,
   });
   const results = data?.items ?? [];
   const showHistory = open && !q.trim() && history.length > 0;
   const showResults = open && !!q.trim();
+  const suggestCount = suggestions.length;
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
