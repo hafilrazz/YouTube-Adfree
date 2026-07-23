@@ -104,6 +104,13 @@ export function ProfileMenu() {
               <Plus className="h-4 w-4" />
               Add profile ({profiles.length}/{MAX_PROFILES})
             </button>
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-100 text-sm"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              Appearance: {theme === "dark" ? "Dark" : "Light"}
+            </button>
           </div>
         </div>
       )}
