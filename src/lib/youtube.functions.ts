@@ -383,3 +383,39 @@ export const getRecommendedFromLikes = createServerFn({ method: "GET" })
 
 
 
+
+export const getLive = createServerFn({ method: "GET" })
+  .inputValidator((d: { q?: string }) => ({
+    q: String(d?.q ?? "").slice(0, 80),
+  }))
+  .handler(async ({ data }): Promise<Video[]> => {
+    setResponseHeader("cache-control", "public, max-age=60, s-maxage=120, stale-while-revalidate=300");
+    const params: Record<string, string> = {
+      part: "snippet",
+      type: "video",
+      eventType: "live",
+      maxResults: "24",
+      order: "viewCount",
+      q: data.q || "live",
+    };
+    const s = await yt("search", params);
+    const ids = (s.items ?? [])
+      .map((it) => (typeof it.id === "string" ? it.id : it.id.videoId))
+      .filter((x): x is string => Boolean(x));
+    if (!ids.length) return [];
+    const v = await yt("videos", {
+      part: "snippet,contentDetails,statistics,liveStreamingDetails",
+      id: ids.join(","),
+    });
+    return (v.items ?? []).map((it) => {
+      const vid = toVideo(it);
+      // Mark as LIVE with concurrent viewer count when available
+      const live = (it as unknown as { liveStreamingDetails?: { concurrentViewers?: string } }).liveStreamingDetails;
+      const viewers = live?.concurrentViewers;
+      return {
+        ...vid,
+        duration: "LIVE",
+        views: viewers ? `${formatViews(viewers)} watching` : vid.views,
+      };
+    });
+  });
