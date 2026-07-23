@@ -7,7 +7,11 @@ import type { Video } from "./faketube-data";
 const LIKES_KEY = "faketube:likes";
 const PLAYLIST_KEY = "faketube:playlist";
 const RECENT_KEY = "faketube:recent";
+const COMPLETED_KEY = "faketube:completed";
+const PROGRESS_KEY = "faketube:progress";
 const RECENT_MAX = 30;
+const COMPLETE_THRESHOLD = 0.9;
+
 
 function readSet(key: string): string[] {
   if (typeof window === "undefined") return [];
