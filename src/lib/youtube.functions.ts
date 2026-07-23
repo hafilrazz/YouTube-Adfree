@@ -838,8 +838,28 @@ export const getShorts = createServerFn({ method: "GET" })
       return { items: mapped };
     } catch (e) {
       console.warn("Invidious shorts failed:", (e as Error).message);
+    }
+
+    // Tertiary: YouTube Data API
+    try {
+      const s = await ytFetch<{ items?: YTSearchItem[] }>(
+        `/search?part=snippet&type=video&videoDuration=short&maxResults=24&q=${encodeURIComponent(data.q + " shorts")}`,
+      );
+      const ids = (s.items ?? []).map((it) => it.id?.videoId).filter((x): x is string => Boolean(x));
+      if (!ids.length) return { items: [] };
+      const d = await ytFetch<{ items?: YTVideoItem[] }>(
+        `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(ids.join(","))}`,
+      );
+      const items = (d.items ?? [])
+        .filter((it) => parseIsoDuration(it.contentDetails?.duration) <= 60)
+        .map(ytVideoToVideo)
+        .filter((v): v is Video => Boolean(v));
+      return { items };
+    } catch (e) {
+      console.warn("YT API shorts failed:", (e as Error).message);
       return { items: [] };
     }
+
   });
 
 // ================== Recommendations from likes + searches ==================
