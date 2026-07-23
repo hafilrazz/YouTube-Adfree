@@ -170,6 +170,23 @@ export const searchYouTube = createServerFn({ method: "GET" })
     };
   });
 
+export const suggestSearch = createServerFn({ method: "GET" })
+  .inputValidator((d: { q: string }) => ({ q: String(d?.q ?? "").slice(0, 100) }))
+  .handler(async ({ data }): Promise<string[]> => {
+    const q = data.q.trim();
+    if (!q) return [];
+    setResponseHeader("cache-control", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800");
+    const url = `https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(q)}`;
+    try {
+      const res = await fetch(url, { headers: { "user-agent": "Mozilla/5.0" } });
+      if (!res.ok) return [];
+      const j = (await res.json()) as [string, string[]];
+      return Array.isArray(j?.[1]) ? j[1].slice(0, 10) : [];
+    } catch {
+      return [];
+    }
+  });
+
 export const getYouTubeVideo = createServerFn({ method: "GET" })
   .inputValidator((d: { id: string }) => ({ id: String(d?.id ?? "") }))
   .handler(async ({ data }): Promise<{ video: Video | null; related: Video[] }> => {
