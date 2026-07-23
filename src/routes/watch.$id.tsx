@@ -1,9 +1,10 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck, Music2, Check } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getYouTubeVideo } from "@/lib/youtube.functions";
 import { useLikes, usePlaylist, useRecent, getProgress, saveProgress } from "@/lib/user-data";
+import { useMusicVideos } from "@/lib/music-videos";
 import type { Video } from "@/lib/faketube-data";
 
 
