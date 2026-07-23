@@ -28,8 +28,10 @@ export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
 }
 
 function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
+  const { premium } = usePremium();
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-neutral-200 h-14 flex items-center justify-between px-4">
+
       <div className="flex items-center gap-4">
         <button onClick={onToggleSidebar} className="p-2 rounded-full hover:bg-neutral-100">
           <Menu className="h-5 w-5" />
