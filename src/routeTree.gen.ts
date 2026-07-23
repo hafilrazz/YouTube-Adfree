@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as PlaylistRouteImport } from './routes/playlist'
 import { Route as LikedRouteImport } from './routes/liked'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
 
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlaylistRoute = PlaylistRouteImport.update({
   id: '/playlist',
   path: '/playlist',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/liked': typeof LikedRoute
   '/playlist': typeof PlaylistRoute
+  '/search': typeof SearchRoute
   '/watch/$id': typeof WatchIdRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/history': typeof HistoryRoute
   '/liked': typeof LikedRoute
   '/playlist': typeof PlaylistRoute
+  '/search': typeof SearchRoute
   '/watch/$id': typeof WatchIdRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,28 @@ export interface FileRoutesById {
   '/history': typeof HistoryRoute
   '/liked': typeof LikedRoute
   '/playlist': typeof PlaylistRoute
+  '/search': typeof SearchRoute
   '/watch/$id': typeof WatchIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/history' | '/liked' | '/playlist' | '/watch/$id'
+  fullPaths:
+    | '/'
+    | '/history'
+    | '/liked'
+    | '/playlist'
+    | '/search'
+    | '/watch/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/liked' | '/playlist' | '/watch/$id'
-  id: '__root__' | '/' | '/history' | '/liked' | '/playlist' | '/watch/$id'
+  to: '/' | '/history' | '/liked' | '/playlist' | '/search' | '/watch/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/history'
+    | '/liked'
+    | '/playlist'
+    | '/search'
+    | '/watch/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,11 +98,19 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   LikedRoute: typeof LikedRoute
   PlaylistRoute: typeof PlaylistRoute
+  SearchRoute: typeof SearchRoute
   WatchIdRoute: typeof WatchIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/playlist': {
       id: '/playlist'
       path: '/playlist'
@@ -124,6 +154,7 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   LikedRoute: LikedRoute,
   PlaylistRoute: PlaylistRoute,
+  SearchRoute: SearchRoute,
   WatchIdRoute: WatchIdRoute,
 }
 export const routeTree = rootRouteImport

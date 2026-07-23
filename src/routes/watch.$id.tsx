@@ -4,6 +4,7 @@ import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, B
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getYouTubeVideo } from "@/lib/youtube.functions";
 import { useLikes, usePlaylist, useRecent } from "@/lib/user-data";
+import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/watch/$id")({
   loader: async ({ params }) => {
@@ -129,7 +130,7 @@ function Watch() {
         </div>
         <aside className="xl:w-96 flex flex-col gap-3">
           <h2 className="font-semibold text-sm text-neutral-700">Up next</h2>
-          {related.map((v) => (
+          {related.map((v: Video) => (
             <Link to="/watch/$id" params={{ id: v.id }} key={v.id} className="flex gap-2 group">
               <div className="relative w-40 aspect-video rounded-lg overflow-hidden shrink-0 bg-neutral-200">
                 <img src={v.thumbnail} alt={v.title} className="h-full w-full object-cover" />
