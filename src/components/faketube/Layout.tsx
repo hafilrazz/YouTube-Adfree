@@ -1,7 +1,7 @@
-import { Link } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Menu, Search, Mic, Video, Bell, User, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo } from "lucide-react";
-import { CATEGORIES } from "@/lib/faketube-data";
+import { CATEGORIES, searchVideos } from "@/lib/faketube-data";
 
 
 export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
@@ -31,7 +31,7 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-neutral-200 h-14 flex items-center justify-between px-4">
 
       <div className="flex items-center gap-4">
-        <button onClick={onToggleSidebar} className="p-2 rounded-full hover:bg-neutral-100">
+        <button onClick={onToggleSidebar} className="p-2 rounded-full hover:bg-neutral-100" aria-label="Toggle sidebar">
           <Menu className="h-5 w-5" />
         </button>
         <Link to="/" className="flex items-center gap-1">
@@ -42,20 +42,7 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
         </Link>
 
       </div>
-      <div className="flex-1 max-w-2xl mx-4 hidden sm:flex items-center">
-        <div className="flex flex-1">
-          <input
-            className="flex-1 border border-neutral-300 rounded-l-full px-4 py-2 text-sm outline-none focus:border-blue-500"
-            placeholder="Search"
-          />
-          <button className="px-5 border border-l-0 border-neutral-300 rounded-r-full bg-neutral-50 hover:bg-neutral-100">
-            <Search className="h-4 w-4" />
-          </button>
-        </div>
-        <button className="ml-2 p-2 rounded-full bg-neutral-100 hover:bg-neutral-200">
-          <Mic className="h-4 w-4" />
-        </button>
-      </div>
+      <SearchBox />
       <div className="flex items-center gap-2">
         <button className="p-2 rounded-full hover:bg-neutral-100"><Video className="h-5 w-5" /></button>
         <button className="p-2 rounded-full hover:bg-neutral-100"><Bell className="h-5 w-5" /></button>
@@ -68,28 +55,126 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   );
 }
 
+function SearchBox() {
+  const navigate = useNavigate();
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const results = searchVideos(q, 8);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  useEffect(() => setActive(0), [q]);
+
+  const go = (id: string) => {
+    setOpen(false);
+    setQ("");
+    navigate({ to: "/watch/$id", params: { id } });
+  };
+
+  return (
+    <div ref={wrapRef} className="flex-1 max-w-2xl mx-4 hidden sm:flex items-center relative">
+      <div className="flex flex-1">
+        <input
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (!open || results.length === 0) return;
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActive((a) => (a + 1) % results.length);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActive((a) => (a - 1 + results.length) % results.length);
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              go(results[active].id);
+            } else if (e.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+          className="flex-1 border border-neutral-300 rounded-l-full px-4 py-2 text-sm outline-none focus:border-blue-500"
+          placeholder="Search"
+        />
+        <button
+          onClick={() => results[0] && go(results[0].id)}
+          className="px-5 border border-l-0 border-neutral-300 rounded-r-full bg-neutral-50 hover:bg-neutral-100"
+          aria-label="Search"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+      </div>
+      <button className="ml-2 p-2 rounded-full bg-neutral-100 hover:bg-neutral-200" aria-label="Voice search">
+        <Mic className="h-4 w-4" />
+      </button>
+
+      {open && q.trim() && (
+        <div className="absolute top-full left-0 right-14 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden z-50 max-h-[70vh] overflow-y-auto">
+          {results.length === 0 ? (
+            <div className="p-4 text-sm text-neutral-500">No videos match “{q}”.</div>
+          ) : (
+            results.map((v, i) => (
+              <button
+                key={v.id}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => go(v.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2 text-left ${
+                  i === active ? "bg-neutral-100" : "hover:bg-neutral-50"
+                }`}
+              >
+                <img src={v.thumbnail} alt="" className="h-12 w-20 object-cover rounded-md shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium line-clamp-1">{v.title}</p>
+                  <p className="text-xs text-neutral-600 line-clamp-1">
+                    {v.channel} · {v.views} views
+                  </p>
+                </div>
+                <Search className="h-4 w-4 text-neutral-400 shrink-0" />
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Sidebar({ open }: { open: boolean }) {
   const items = [
-    { icon: Home, label: "Home" },
-    { icon: Flame, label: "Trending" },
-    { icon: ListVideo, label: "Subscriptions" },
-    { icon: History, label: "History" },
-    { icon: Clock, label: "Watch later" },
-    { icon: ThumbsUp, label: "Liked videos" },
-    { icon: Music2, label: "Music" },
-    { icon: Gamepad2, label: "Gaming" },
-    { icon: Newspaper, label: "News" },
-    { icon: Trophy, label: "Sports" },
-    { icon: Lightbulb, label: "Learning" },
-    { icon: Clapperboard, label: "Movies" },
+    { icon: Home, label: "Home", to: "/" as const },
+    { icon: Flame, label: "Trending", to: "/" as const },
+    { icon: ListVideo, label: "Playlist", to: "/playlist" as const },
+    { icon: History, label: "History", to: "/history" as const },
+    { icon: Clock, label: "Watch later", to: "/playlist" as const },
+    { icon: ThumbsUp, label: "Liked videos", to: "/liked" as const },
+    { icon: Music2, label: "Music", to: "/" as const },
+    { icon: Gamepad2, label: "Gaming", to: "/" as const },
+    { icon: Newspaper, label: "News", to: "/" as const },
+    { icon: Trophy, label: "Sports", to: "/" as const },
+    { icon: Lightbulb, label: "Learning", to: "/" as const },
+    { icon: Clapperboard, label: "Movies", to: "/" as const },
   ];
   return (
     <aside className={`fixed left-0 top-14 bottom-0 z-40 bg-white ${open ? "w-60" : "w-20"} hidden md:block overflow-y-auto`}>
       <nav className="py-2">
-        {items.map(({ icon: Icon, label }) => (
+        {items.map(({ icon: Icon, label, to }) => (
           <Link
             key={label}
-            to="/"
+            to={to}
             className={`flex ${open ? "flex-row items-center gap-6 px-6 py-2" : "flex-col items-center gap-1 py-4"} hover:bg-neutral-100 mx-2 rounded-lg`}
           >
             <Icon className="h-5 w-5 shrink-0" />
