@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Play, Pause, Trash2, Music2 } from "lucide-react";
+import { Play, Pause, Trash2, Music2, PlaySquare } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getTrack } from "@/lib/music-data";
 import { useMusic } from "@/lib/music-player";
+import { useMusicVideos } from "@/lib/music-videos";
+import { useVideosByIds } from "@/lib/user-data";
+import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/music/playlist")({
   head: () => ({
@@ -19,6 +22,8 @@ export const Route = createFileRoute("/music/playlist")({
 function MusicPlaylistPage() {
   const { playlist, current, isPlaying, playPlaylist, toggle, removeFromPlaylist } = useMusic();
   const tracks = playlist.map((id) => getTrack(id)).filter((t): t is NonNullable<ReturnType<typeof getTrack>> => !!t);
+  const musicVids = useMusicVideos();
+  const { data: videos = [] } = useVideosByIds(musicVids.ids);
 
   return (
     <FakeTubeLayout>
