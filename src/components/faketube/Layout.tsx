@@ -1,7 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { Menu, Search, Mic, Video, Bell, User, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo } from "lucide-react";
+import { Menu, Search, Mic, Video, Bell, User, Home, Flame, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo, Crown, Check } from "lucide-react";
 import { CATEGORIES } from "@/lib/faketube-data";
+import { usePremium } from "@/lib/use-premium";
+
 
 export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
   children: ReactNode;
