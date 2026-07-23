@@ -6,8 +6,9 @@ import { Loader2 } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { VideoCard } from "@/components/faketube/VideoCard";
 import type { Video } from "@/lib/faketube-data";
-import { getTrending } from "@/lib/youtube.functions";
-import { useRecent, useVideosByIds } from "@/lib/user-data";
+import { getTrending, getRecommendedFromLikes } from "@/lib/youtube.functions";
+import { useLikes, useRecent, useVideosByIds } from "@/lib/user-data";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
