@@ -78,8 +78,9 @@ function ReelsPage() {
 }
 
 function Reel({ video }: { video: Video }) {
-  const { toggle, has } = useLikes();
-  const liked = has(video.id);
+  const { toggle, isLiked } = useLikes();
+  const liked = isLiked(video.id);
+
   return (
     <div className="snap-start snap-always h-[calc(100vh-10rem)] flex items-center justify-center gap-3 mb-2">
       <div className="relative h-full aspect-[9/16] max-h-full bg-black rounded-2xl overflow-hidden shadow-lg">
