@@ -1,22 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2 } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { VideoCard } from "@/components/faketube/VideoCard";
 import type { Video } from "@/lib/faketube-data";
-import { getTrending, getRecommendedFromLikes } from "@/lib/youtube.functions";
+import { getRecommendedFromLikes } from "@/lib/youtube.functions";
 import { useLikes, useRecent, useVideosByIds } from "@/lib/user-data";
 
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Youtube — Trending videos right now" },
-      { name: "description", content: "Watch what's trending today on YouTube — music, gaming, news, sports and more, streamed straight from the source." },
-      { property: "og:title", content: "Youtube — Trending videos right now" },
-      { property: "og:description", content: "Watch what's trending today on YouTube — music, gaming, news, sports and more, streamed straight from the source." },
+      { title: "Premium — Recommended videos for you" },
+      { name: "description", content: "Your personalized YouTube feed — recommendations based on videos you've liked." },
+      { property: "og:title", content: "Premium — Recommended videos for you" },
+      { property: "og:description", content: "Your personalized YouTube feed — recommendations based on videos you've liked." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -25,28 +24,13 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const [category, setCategory] = useState("All");
-  const trendingFn = useServerFn(getTrending);
-  // Bucket by hour so the feed rotates every hour
-  const hourBucket = Math.floor(Date.now() / (60 * 60_000));
-  const { data: videos = [], isLoading, error } = useQuery<Video[]>({
-    queryKey: ["trending", category, hourBucket],
-    queryFn: () => trendingFn({ data: { category } }),
-    staleTime: 60 * 60_000,
-    gcTime: 2 * 60 * 60_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
-
-
-
   const { ids: recentIds } = useRecent();
   const { data: recent = [] } = useVideosByIds(recentIds.slice(0, 6));
 
   const { ids: likedIds } = useLikes();
   const recFn = useServerFn(getRecommendedFromLikes);
   const seedIds = likedIds.slice(0, 5);
-  const { data: recommended = [] } = useQuery<Video[]>({
+  const { data: recommended = [], isLoading, error } = useQuery<Video[]>({
     queryKey: ["recommended", seedIds.join(",")],
     queryFn: () => recFn({ data: { ids: seedIds } }),
     enabled: seedIds.length > 0,
@@ -55,7 +39,7 @@ function Home() {
   });
 
   return (
-    <FakeTubeLayout activeCategory={category} onCategoryChange={setCategory}>
+    <FakeTubeLayout>
       {recent.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3">
@@ -72,30 +56,25 @@ function Home() {
         </section>
       )}
 
-      {recommended.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Recommended for you</h2>
-            <span className="text-xs text-neutral-500">Based on videos you liked</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-            {recommended.slice(0, 8).map((v) => (
-              <VideoCard key={v.id} video={v} />
-            ))}
-          </div>
-        </section>
-      )}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">Recommended for you</h2>
+        {seedIds.length > 0 && <span className="text-xs text-neutral-500">Based on videos you liked</span>}
+      </div>
 
-
-      {error ? (
+      {seedIds.length === 0 ? (
+        <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 text-center text-sm text-neutral-500">
+          Like some videos to get personalized recommendations here.{" "}
+          <Link to="/trending" className="text-blue-600">Browse trending</Link> to get started.
+        </div>
+      ) : error ? (
         <div className="p-6 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700">
-          Couldn't load videos from YouTube. {(error as Error).message}
+          Couldn't load recommendations. {(error as Error).message}
         </div>
       ) : isLoading ? (
         <SkeletonGrid />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-          {videos.map((v) => (
+          {recommended.map((v) => (
             <VideoCard key={v.id} video={v} />
           ))}
         </div>
