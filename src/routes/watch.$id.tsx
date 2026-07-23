@@ -2,22 +2,22 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
-import { getVideo, relatedVideos } from "@/lib/faketube-data";
+import { getYouTubeVideo } from "@/lib/youtube.functions";
 import { useLikes, usePlaylist, useRecent } from "@/lib/user-data";
 
 export const Route = createFileRoute("/watch/$id")({
-  loader: ({ params }) => {
-    const video = getVideo(params.id);
-    if (!video) throw notFound();
-    return { video, related: relatedVideos(params.id) };
+  loader: async ({ params }) => {
+    const res = await getYouTubeVideo({ data: { id: params.id } });
+    if (!res.video) throw notFound();
+    return res as { video: NonNullable<typeof res.video>; related: typeof res.related };
   },
   head: ({ loaderData }) => ({
     meta: loaderData
       ? [
           { title: `${loaderData.video.title} — Premium` },
-          { name: "description", content: loaderData.video.description },
+          { name: "description", content: loaderData.video.description.slice(0, 160) },
           { property: "og:title", content: loaderData.video.title },
-          { property: "og:description", content: loaderData.video.description },
+          { property: "og:description", content: loaderData.video.description.slice(0, 160) },
           { property: "og:image", content: loaderData.video.thumbnail },
           { name: "twitter:card", content: "summary_large_image" },
           { name: "twitter:image", content: loaderData.video.thumbnail },
@@ -25,6 +25,15 @@ export const Route = createFileRoute("/watch/$id")({
       : [{ title: "Not found — Premium" }, { name: "robots", content: "noindex" }],
   }),
   component: Watch,
+  errorComponent: ({ error }) => (
+    <FakeTubeLayout>
+      <div className="text-center py-20">
+        <h1 className="text-2xl font-bold">Couldn't load this video</h1>
+        <p className="text-sm text-neutral-600 mt-2">{error.message}</p>
+        <Link to="/" className="text-blue-600 mt-4 inline-block">Back home</Link>
+      </div>
+    </FakeTubeLayout>
+  ),
   notFoundComponent: () => (
     <FakeTubeLayout>
       <div className="text-center py-20">
@@ -42,9 +51,7 @@ function Watch() {
   const playlist = usePlaylist();
   const { record } = useRecent();
 
-  useEffect(() => {
-    record(video.id);
-  }, [video.id, record]);
+  useEffect(() => { record(video.id); }, [video.id, record]);
 
   const liked = likes.isLiked(video.id);
   const saved = playlist.isSaved(video.id);
@@ -59,7 +66,7 @@ function Watch() {
               className="h-full w-full"
               src={`https://www.youtube.com/embed/${video.id}?autoplay=1&rel=0`}
               title={video.title}
-              allow="accelerate; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
             />
           </div>
@@ -70,7 +77,7 @@ function Watch() {
               <img src={video.channelAvatar} className="h-10 w-10 rounded-full" alt="" />
               <div>
                 <p className="font-semibold text-sm">{video.channel}</p>
-                <p className="text-xs text-neutral-600">1.2M subscribers</p>
+                <p className="text-xs text-neutral-600">YouTube channel</p>
               </div>
               <button
                 onClick={() => setSubscribed((v) => !v)}
@@ -119,30 +126,10 @@ function Watch() {
             <p className="text-sm font-semibold">{video.views} views · {video.posted}</p>
             <p className="mt-2 text-sm whitespace-pre-wrap">{video.description}</p>
           </div>
-          <div className="mt-6">
-            <h2 className="font-semibold mb-3">247 Comments</h2>
-            <div className="flex gap-3 mb-6">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500" />
-              <input className="flex-1 border-b border-neutral-300 py-2 text-sm outline-none focus:border-neutral-900" placeholder="Add a comment..." />
-            </div>
-            {[
-              { u: "faketube_fan", t: "First! Love this video, so real 🔥" },
-              { u: "notabot", t: "Definitely not written by AI. Definitely." },
-              { u: "old_school", t: "Take my like, sir." },
-            ].map((c, i) => (
-              <div key={i} className="flex gap-3 mb-4">
-                <img src={`https://i.pravatar.cc/80?u=${c.u}`} className="h-10 w-10 rounded-full" alt="" />
-                <div>
-                  <p className="text-xs font-semibold">@{c.u} <span className="text-neutral-500 font-normal ml-2">2 days ago</span></p>
-                  <p className="text-sm mt-1">{c.t}</p>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
         <aside className="xl:w-96 flex flex-col gap-3">
           <h2 className="font-semibold text-sm text-neutral-700">Up next</h2>
-          {related.map((v: typeof related[number]) => (
+          {related.map((v) => (
             <Link to="/watch/$id" params={{ id: v.id }} key={v.id} className="flex gap-2 group">
               <div className="relative w-40 aspect-video rounded-lg overflow-hidden shrink-0 bg-neutral-200">
                 <img src={v.thumbnail} alt={v.title} className="h-full w-full object-cover" />
