@@ -560,7 +560,7 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
 
       const related = (s.recommendedVideos ?? [])
         .map(invToVideo)
-        .filter((v): v is Video => Boolean(v) && v.id !== data.id)
+        .filter((v): v is Video => v !== null && v.id !== data.id)
         .slice(0, 20);
 
       return { video, related };
