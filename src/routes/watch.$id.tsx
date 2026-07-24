@@ -226,6 +226,16 @@ function YouTubePlayer({ id, title }: { id: string; title: string }) {
       >
         {isFs ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
       </button>
+      {pipSupported && (
+        <button
+          type="button"
+          onClick={togglePip}
+          className="absolute bottom-2 right-12 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 md:hidden"
+          aria-label={isPip ? "Exit picture-in-picture" : "Picture-in-picture"}
+        >
+          <PictureInPicture2 className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }
