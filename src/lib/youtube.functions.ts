@@ -1042,8 +1042,6 @@ export const getVideosByIds = createServerFn({ method: "GET" })
     if (!data.ids.length) return [];
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=3600, stale-while-revalidate=86400");
 
-    // Synthetic fallback so recent/music/etc. never render empty when the
-    // public mirrors are down. Uses YouTube's public thumbnail CDN.
     const synthetic = (id: string): Video => ({
       id,
       title: "YouTube video",
@@ -1056,9 +1054,30 @@ export const getVideosByIds = createServerFn({ method: "GET" })
       description: "",
     });
 
-    // Fan out to Piped /streams/{id} in parallel; fall back per-id to Invidious.
+    const map = new Map<string, Video>();
+
+    // Fast path: single batched YouTube Data API call for up to 50 ids.
+    if (ytKey()) {
+      try {
+        const j = await ytFetch<{ items?: YTVideoItem[] }>(
+          `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(data.ids.join(","))}`,
+        );
+        for (const it of j.items ?? []) {
+          const v = ytVideoToVideo(it);
+          if (v) map.set(v.id, v);
+        }
+        if (map.size === data.ids.length) {
+          return data.ids.map((id) => map.get(id)!);
+        }
+      } catch (e) {
+        console.warn("YT API batch lookup failed:", (e as Error).message);
+      }
+    }
+
+    // Fill remaining ids via Piped/Invidious in parallel, with synthetic fallback.
+    const missing = data.ids.filter((id) => !map.has(id));
     const results = await Promise.allSettled(
-      data.ids.map(async (id): Promise<Video> => {
+      missing.map(async (id): Promise<Video> => {
         try {
           const s = await piped<{
             title?: string;
@@ -1119,38 +1138,15 @@ export const getVideosByIds = createServerFn({ method: "GET" })
       }),
     );
 
-    // Final tier: batch call YouTube Data API for any ids we only got a
-    // synthetic placeholder for. Cheap: one request for up to 50 ids.
-    const map = new Map<string, Video>();
-    const needsUpgrade: string[] = [];
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
-      const id = data.ids[i];
-      if (r.status === "fulfilled") {
-        map.set(id, r.value);
-        if (r.value.title === "YouTube video") needsUpgrade.push(id);
-      } else {
-        map.set(id, synthetic(id));
-        needsUpgrade.push(id);
-      }
-    }
-
-    if (needsUpgrade.length && ytKey()) {
-      try {
-        const j = await ytFetch<{ items?: YTVideoItem[] }>(
-          `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(needsUpgrade.join(","))}`,
-        );
-        for (const it of j.items ?? []) {
-          const v = ytVideoToVideo(it);
-          if (v) map.set(v.id, v);
-        }
-      } catch (e) {
-        console.warn("YT API videos lookup failed:", (e as Error).message);
-      }
+      const id = missing[i];
+      map.set(id, r.status === "fulfilled" ? r.value : synthetic(id));
     }
 
     return data.ids.map((id) => map.get(id)!).filter(Boolean);
   });
+
 
 // ================== Shorts ==================
 
