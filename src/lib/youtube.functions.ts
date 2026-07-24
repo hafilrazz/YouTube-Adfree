@@ -143,7 +143,7 @@ function cacheSet(key: string, value: unknown, ttlMs: number): void {
   }
 }
 
-async function raceFetch(bases: string[], path: string, timeoutMs = 6000): Promise<unknown> {
+async function raceFetch(bases: string[], path: string, timeoutMs = 3500): Promise<unknown> {
   const attempts = bases.map(async (base) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -603,7 +603,15 @@ export const getTrending = createServerFn({ method: "GET" })
 
     const isTrending = data.category === "All" || data.category === "Trending";
 
-    // Primary: Piped
+    // Primary: InnerTube (YouTube's own guest API — single fast endpoint, no key, no quota)
+    try {
+      const it = isTrending ? await innertubeTrending() : await innertubeSearch(data.category);
+      if (it.length) return it.slice(0, 32);
+    } catch (e) {
+      console.warn("InnerTube trending failed:", (e as Error).message);
+    }
+
+    // Secondary: Piped (raced across mirrors)
     try {
       if (isTrending) {
         const items = await piped<PipedItem[]>(`/trending?region=${encodeURIComponent(data.region)}`);
@@ -620,7 +628,7 @@ export const getTrending = createServerFn({ method: "GET" })
       console.warn("Piped trending failed:", (e as Error).message);
     }
 
-    // Secondary: Invidious
+    // Tertiary: Invidious
     try {
       if (isTrending) {
         const items = await invidious<InvVideoItem[]>(
@@ -639,14 +647,6 @@ export const getTrending = createServerFn({ method: "GET" })
       console.warn("Invidious trending failed:", (e as Error).message);
     }
 
-    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
-    try {
-      const it = isTrending ? await innertubeTrending() : await innertubeSearch(data.category);
-      if (it.length) return it.slice(0, 32);
-    } catch (e) {
-      console.warn("InnerTube trending failed:", (e as Error).message);
-    }
-
     // Quaternary: keyless YouTube HTML scrape
     try {
       const scraped = isTrending
@@ -656,6 +656,7 @@ export const getTrending = createServerFn({ method: "GET" })
     } catch (e) {
       console.warn("YT scrape trending failed:", (e as Error).message);
     }
+
 
 
     // Tertiary: YouTube Data API
@@ -699,7 +700,17 @@ export const searchYouTube = createServerFn({ method: "GET" })
     if (!data.q.trim()) return { items: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=1800, stale-while-revalidate=3600");
 
-    // Primary: Piped
+    // Primary: InnerTube (fastest — one direct call to youtube.com, no key, no quota)
+    if (!data.pageToken) {
+      try {
+        const it = await innertubeSearch(data.q);
+        if (it.length) return { items: it.slice(0, data.limit) };
+      } catch (e) {
+        console.warn("InnerTube search failed:", (e as Error).message);
+      }
+    }
+
+    // Secondary: Piped (supports pagination)
     try {
       const path = data.pageToken
         ? `/nextpage/search?nextpage=${encodeURIComponent(data.pageToken)}&q=${encodeURIComponent(data.q)}&filter=videos`
@@ -720,7 +731,7 @@ export const searchYouTube = createServerFn({ method: "GET" })
       console.warn("Piped search failed:", (e as Error).message);
     }
 
-    // Secondary: Invidious (first page only — pagination uses ?page=N which we don't track)
+    // Tertiary: Invidious (first page only)
     if (!data.pageToken) {
       try {
         const items = await invidious<InvVideoItem[]>(
@@ -737,17 +748,7 @@ export const searchYouTube = createServerFn({ method: "GET" })
       }
     }
 
-    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
-    if (!data.pageToken) {
-      try {
-        const it = await innertubeSearch(data.q);
-        if (it.length) return { items: it.slice(0, data.limit) };
-      } catch (e) {
-        console.warn("InnerTube search failed:", (e as Error).message);
-      }
-    }
-
-    // Quaternary: keyless YouTube HTML scrape (no API key, no quota)
+    // Quaternary: keyless YouTube HTML scrape
     if (!data.pageToken) {
       try {
         const scraped = await ytScrapeSearch(data.q);
@@ -756,6 +757,7 @@ export const searchYouTube = createServerFn({ method: "GET" })
         console.warn("YT scrape search failed:", (e as Error).message);
       }
     }
+
 
 
     // Tertiary: YouTube Data API
@@ -813,7 +815,15 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
     if (!data.id) return { video: null, related: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=3600, stale-while-revalidate=86400");
 
-    // Primary: Piped /streams/{id}
+    // Primary: InnerTube (fastest — YouTube's own guest API, no key, no quota)
+    try {
+      const r = await innertubeWatch(data.id);
+      if (r.video || r.related.length) return r;
+    } catch (e) {
+      console.warn("InnerTube watch failed:", (e as Error).message);
+    }
+
+    // Secondary: Piped /streams/{id}
     try {
       const s = await piped<{
         title?: string;
@@ -852,7 +862,7 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
       console.warn("Piped /streams failed:", (e as Error).message);
     }
 
-    // Secondary: Invidious /api/v1/videos/{id}
+    // Tertiary: Invidious /api/v1/videos/{id}
     try {
       const s = await invidious<{
         title?: string;
@@ -893,13 +903,6 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
       console.warn("Invidious /videos failed:", (e as Error).message);
     }
 
-    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
-    try {
-      const r = await innertubeWatch(data.id);
-      if (r.video || r.related.length) return r;
-    } catch (e) {
-      console.warn("InnerTube watch failed:", (e as Error).message);
-    }
 
     // Quaternary: YouTube Data API
     try {
@@ -1039,8 +1042,6 @@ export const getVideosByIds = createServerFn({ method: "GET" })
     if (!data.ids.length) return [];
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=3600, stale-while-revalidate=86400");
 
-    // Synthetic fallback so recent/music/etc. never render empty when the
-    // public mirrors are down. Uses YouTube's public thumbnail CDN.
     const synthetic = (id: string): Video => ({
       id,
       title: "YouTube video",
@@ -1053,9 +1054,30 @@ export const getVideosByIds = createServerFn({ method: "GET" })
       description: "",
     });
 
-    // Fan out to Piped /streams/{id} in parallel; fall back per-id to Invidious.
+    const map = new Map<string, Video>();
+
+    // Fast path: single batched YouTube Data API call for up to 50 ids.
+    if (ytKey()) {
+      try {
+        const j = await ytFetch<{ items?: YTVideoItem[] }>(
+          `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(data.ids.join(","))}`,
+        );
+        for (const it of j.items ?? []) {
+          const v = ytVideoToVideo(it);
+          if (v) map.set(v.id, v);
+        }
+        if (map.size === data.ids.length) {
+          return data.ids.map((id) => map.get(id)!);
+        }
+      } catch (e) {
+        console.warn("YT API batch lookup failed:", (e as Error).message);
+      }
+    }
+
+    // Fill remaining ids via Piped/Invidious in parallel, with synthetic fallback.
+    const missing = data.ids.filter((id) => !map.has(id));
     const results = await Promise.allSettled(
-      data.ids.map(async (id): Promise<Video> => {
+      missing.map(async (id): Promise<Video> => {
         try {
           const s = await piped<{
             title?: string;
@@ -1116,38 +1138,15 @@ export const getVideosByIds = createServerFn({ method: "GET" })
       }),
     );
 
-    // Final tier: batch call YouTube Data API for any ids we only got a
-    // synthetic placeholder for. Cheap: one request for up to 50 ids.
-    const map = new Map<string, Video>();
-    const needsUpgrade: string[] = [];
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
-      const id = data.ids[i];
-      if (r.status === "fulfilled") {
-        map.set(id, r.value);
-        if (r.value.title === "YouTube video") needsUpgrade.push(id);
-      } else {
-        map.set(id, synthetic(id));
-        needsUpgrade.push(id);
-      }
-    }
-
-    if (needsUpgrade.length && ytKey()) {
-      try {
-        const j = await ytFetch<{ items?: YTVideoItem[] }>(
-          `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(needsUpgrade.join(","))}`,
-        );
-        for (const it of j.items ?? []) {
-          const v = ytVideoToVideo(it);
-          if (v) map.set(v.id, v);
-        }
-      } catch (e) {
-        console.warn("YT API videos lookup failed:", (e as Error).message);
-      }
+      const id = missing[i];
+      map.set(id, r.status === "fulfilled" ? r.value : synthetic(id));
     }
 
     return data.ids.map((id) => map.get(id)!).filter(Boolean);
   });
+
 
 // ================== Shorts ==================
 
