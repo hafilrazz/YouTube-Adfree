@@ -13,6 +13,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { MusicPlayerProvider } from "@/lib/music-player";
 import { MiniPlayer } from "@/components/faketube/MiniPlayer";
+import { VideoPlayerProvider } from "@/lib/video-player-context";
+import { GlobalVideoPlayer } from "@/components/faketube/GlobalVideoPlayer";
 
 function NotFoundComponent() {
   return (
@@ -138,9 +140,12 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <MusicPlayerProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <MiniPlayer />
+        <VideoPlayerProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+          <GlobalVideoPlayer />
+          <MiniPlayer />
+        </VideoPlayerProvider>
       </MusicPlayerProvider>
     </QueryClientProvider>
   );

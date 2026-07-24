@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck, Music2, Check, Loader2, Heart, Pin, BadgeCheck, Maximize2, Minimize2, PictureInPicture2 } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck, Music2, Check, Loader2, Heart, Pin, BadgeCheck } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getYouTubeVideo, getComments } from "@/lib/youtube.functions";
-import { useLikes, usePlaylist, useRecent, getProgress, saveProgress } from "@/lib/user-data";
+import { useLikes, usePlaylist, useRecent } from "@/lib/user-data";
 import { useMusicVideos } from "@/lib/music-videos";
 import { useSubscriptions } from "@/lib/subscriptions";
+import { useVideoPlayer } from "@/lib/video-player-context";
 import type { Video } from "@/lib/faketube-data";
 
 
@@ -35,225 +36,17 @@ export const Route = createFileRoute("/watch/$id")({
 });
 
 
-let ytApiPromise: Promise<any> | null = null;
-function loadYouTubeApi(): Promise<any> {
-  if (typeof window === "undefined") return Promise.reject();
-  const w = window as any;
-  if (w.YT && w.YT.Player) return Promise.resolve(w.YT);
-  if (ytApiPromise) return ytApiPromise;
-  ytApiPromise = new Promise((resolve) => {
-    const prev = w.onYouTubeIframeAPIReady;
-    w.onYouTubeIframeAPIReady = () => {
-      prev?.();
-      resolve(w.YT);
-    };
-    const s = document.createElement("script");
-    s.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(s);
-  });
-  return ytApiPromise;
-}
-
-function YouTubePlayer({ id, title }: { id: string; title: string }) {
-  const mountRef = useRef<HTMLDivElement | null>(null);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const placeholderRef = useRef<HTMLDivElement | null>(null);
-  const pipWinRef = useRef<Window | null>(null);
-  const [isFs, setIsFs] = useState(false);
-  const [isPip, setIsPip] = useState(false);
-  const [pipSupported, setPipSupported] = useState(false);
-
-  useEffect(() => {
-    setPipSupported(typeof window !== "undefined" && "documentPictureInPicture" in window);
-  }, []);
-
-  const togglePip = async () => {
-    const w = window as any;
-    const wrap = wrapRef.current;
-    if (!wrap || !w.documentPictureInPicture) return;
-    if (pipWinRef.current && !pipWinRef.current.closed) {
-      pipWinRef.current.close();
-      return;
-    }
-    try {
-      const rect = wrap.getBoundingClientRect();
-      const pipWin: Window = await w.documentPictureInPicture.requestWindow({
-        width: Math.round(rect.width) || 480,
-        height: Math.round(rect.height) || 270,
-      });
-      // Copy styles so the iframe renders correctly in the PiP window.
-      document.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => {
-        pipWin.document.head.appendChild(node.cloneNode(true));
-      });
-      pipWin.document.body.style.margin = "0";
-      pipWin.document.body.style.background = "#000";
-      // Leave a placeholder so we can restore the node when PiP closes.
-      const placeholder = document.createElement("div");
-      placeholder.style.cssText = "position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;";
-      placeholder.textContent = "";
-      placeholderRef.current = placeholder;
-      wrap.parentNode?.insertBefore(placeholder, wrap);
-      pipWin.document.body.appendChild(wrap);
-      pipWinRef.current = pipWin;
-      setIsPip(true);
-      pipWin.addEventListener("pagehide", () => {
-        const ph = placeholderRef.current;
-        if (ph && wrap) ph.parentNode?.replaceChild(wrap, ph);
-        placeholderRef.current = null;
-        pipWinRef.current = null;
-        setIsPip(false);
-      });
-    } catch {
-      // ignore
-    }
-  };
-
-  // Auto-enter PiP when the tab/app is hidden (user hit Home or switched apps).
-  useEffect(() => {
-    if (!pipSupported) return;
-    const onVis = () => {
-      if (document.visibilityState === "hidden" && !pipWinRef.current) {
-        togglePip().catch(() => {});
-      }
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, [pipSupported]);
-
-
-
-  
-
-  useEffect(() => {
-    const onFsChange = async () => {
-      const fs = document.fullscreenElement || (document as any).webkitFullscreenElement;
-      setIsFs(!!fs);
-      const isMobile = window.matchMedia("(max-width: 767px)").matches;
-      if (!isMobile) return;
-      const orientation = (screen as any).orientation;
-      try {
-        if (fs && orientation?.lock) {
-          await orientation.lock("landscape");
-        } else if (!fs && orientation?.unlock) {
-          orientation.unlock();
-        }
-      } catch {
-        // Orientation lock only works in fullscreen; ignore rejections.
-      }
-    };
-    document.addEventListener("fullscreenchange", onFsChange);
-    document.addEventListener("webkitfullscreenchange", onFsChange as any);
-    return () => {
-      document.removeEventListener("fullscreenchange", onFsChange);
-      document.removeEventListener("webkitfullscreenchange", onFsChange as any);
-      try { (screen as any).orientation?.unlock?.(); } catch {}
-    };
-  }, []);
-
-  const toggleFullscreen = async () => {
-    const el = wrapRef.current as any;
-    if (!el) return;
-    const doc = document as any;
-    const fs = doc.fullscreenElement || doc.webkitFullscreenElement;
-    try {
-      if (!fs) {
-        const iframe = el.querySelector("iframe") as any;
-        if (el.requestFullscreen) await el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        else if (iframe?.webkitEnterFullscreen) iframe.webkitEnterFullscreen(); // iOS Safari
-        else if (iframe?.requestFullscreen) await iframe.requestFullscreen();
-      } else {
-        if (doc.exitFullscreen) await doc.exitFullscreen();
-        else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
-      }
-    } catch {}
-  };
-
-  const playerRef = useRef<any>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    let interval: ReturnType<typeof setInterval> | null = null;
-    const start = Math.floor(getProgress(id));
-
-    loadYouTubeApi().then((YT) => {
-      if (cancelled || !mountRef.current) return;
-      playerRef.current = new YT.Player(mountRef.current, {
-        videoId: id,
-        playerVars: { autoplay: 1, rel: 0, start, playsinline: 1, fs: 1 },
-        events: {
-          onReady: (e: any) => {
-            interval = setInterval(() => {
-              const p = playerRef.current;
-              if (!p?.getCurrentTime) return;
-              const t = p.getCurrentTime();
-              const d = p.getDuration();
-              if (d > 0) saveProgress(id, t, d);
-            }, 3000);
-            e.target.playVideo();
-          },
-          onStateChange: (e: any) => {
-            const p = playerRef.current;
-            if (!p) return;
-            const d = p.getDuration?.() ?? 0;
-            const t = p.getCurrentTime?.() ?? 0;
-            if (d > 0) saveProgress(id, t, d);
-            if (e.data === YT.PlayerState.ENDED && d > 0) saveProgress(id, d, d);
-          },
-        },
-      });
-    });
-
-    return () => {
-      cancelled = true;
-      if (interval) clearInterval(interval);
-      const p = playerRef.current;
-      if (p) {
-        try {
-          const d = p.getDuration?.() ?? 0;
-          const t = p.getCurrentTime?.() ?? 0;
-          if (d > 0) saveProgress(id, t, d);
-          p.destroy?.();
-        } catch {}
-      }
-      playerRef.current = null;
-    };
-  }, [id]);
-
+function VideoSlot() {
+  const { setSlot } = useVideoPlayer();
   return (
     <div
-      ref={wrapRef}
-      className={`relative overflow-hidden bg-black ${isFs ? "fixed inset-0 z-[2147483647] rounded-none" : "rounded-xl aspect-video"}`}
-    >
-      <div
-        ref={mountRef}
-        className="h-full w-full origin-center"
-        style={isFs ? { transform: "scale(1.34)" } : undefined}
-        title={title}
-      />
-
-
-      <button
-        type="button"
-        onClick={toggleFullscreen}
-        className="absolute bottom-2 right-2 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 md:hidden"
-        aria-label={isFs ? "Exit fullscreen" : "Enter fullscreen"}
-      >
-        {isFs ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-      </button>
-      {pipSupported && (
-        <button
-          type="button"
-          onClick={togglePip}
-          className="absolute bottom-2 right-12 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 md:hidden"
-          aria-label={isPip ? "Exit picture-in-picture" : "Picture-in-picture"}
-        >
-          <PictureInPicture2 className="h-4 w-4" />
-        </button>
-      )}
-    </div>
+      ref={setSlot}
+      className="relative w-full aspect-video rounded-xl bg-black"
+      aria-label="Video player"
+    />
   );
 }
+
 
 function Watch() {
   const { id } = Route.useParams();
@@ -277,6 +70,7 @@ function Watch() {
   const related: Video[] = data?.related ?? [];
 
   const subscriptions = useSubscriptions();
+  const { openVideo } = useVideoPlayer();
   const [descExpanded, setDescExpanded] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const likes = useLikes();
@@ -285,6 +79,16 @@ function Watch() {
   const { record } = useRecent();
 
   useEffect(() => { record(id); }, [id, record]);
+
+  useEffect(() => {
+    openVideo({
+      id: video.id,
+      title: video.title,
+      channel: video.channel,
+      thumbnail: video.thumbnail,
+    });
+  }, [video.id, video.title, video.channel, video.thumbnail, openVideo]);
+
 
   const liked = likes.isLiked(id);
   const saved = playlist.isSaved(id);
@@ -305,7 +109,7 @@ function Watch() {
     <FakeTubeLayout>
       <div className="flex flex-col xl:flex-row gap-6 w-full min-w-0">
         <div className="flex-1 min-w-0">
-          <YouTubePlayer id={video.id} title={video.title} />
+          <VideoSlot />
 
 
           <h1 className="mt-4 text-lg sm:text-xl font-bold break-words">{video.title}</h1>
