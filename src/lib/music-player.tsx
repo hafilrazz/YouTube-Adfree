@@ -252,8 +252,16 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         { src: current.cover, sizes: "1280x720", type: "image/jpeg" },
       ],
     });
-    navigator.mediaSession.setActionHandler("play", () => playerRef.current?.playVideo());
-    navigator.mediaSession.setActionHandler("pause", () => playerRef.current?.pauseVideo());
+    navigator.mediaSession.setActionHandler("play", () => {
+      wantsPlayRef.current = true;
+      silentRef.current?.play().catch(() => { /* ignore */ });
+      playerRef.current?.playVideo();
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      wantsPlayRef.current = false;
+      playerRef.current?.pauseVideo();
+    });
+
     navigator.mediaSession.setActionHandler("previoustrack", () => prev());
     navigator.mediaSession.setActionHandler("nexttrack", () => next());
     navigator.mediaSession.setActionHandler("seekto", (e) => {
