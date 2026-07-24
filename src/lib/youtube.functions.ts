@@ -336,6 +336,55 @@ function ytVideoToVideo(it: YTVideoItem): Video | null {
 }
 
 
+// ================== InnerTube (YouTube's own guest API) ==================
+// Keyless from our side: uses YouTube's public web-client key that ships in
+// every youtube.com page. No API-key registration, no per-project quota — this
+// is the same endpoint the youtube.com web app itself calls.
+
+const INNERTUBE_KEY = "AIzaSyAO_FL9IsIrOS3wgxHhpkGkY74dxHb0X8Y";
+const INNERTUBE_CONTEXT = {
+  client: {
+    clientName: "WEB",
+    clientVersion: "2.20240726.00.00",
+    hl: "en",
+    gl: "US",
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36,gzip(gfe)",
+  },
+};
+
+async function innertube<T = unknown>(endpoint: string, body: Record<string, unknown>): Promise<T | null> {
+  const cacheKey = `it:${endpoint}:${JSON.stringify(body)}`;
+  const cached = cacheGet<T>(cacheKey);
+  if (cached) return cached;
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/youtubei/v1/${endpoint}?key=${INNERTUBE_KEY}&prettyPrint=false`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-youtube-client-name": "1",
+          "x-youtube-client-version": "2.20240726.00.00",
+          "accept-language": "en-US,en;q=0.9",
+          origin: "https://www.youtube.com",
+          referer: "https://www.youtube.com/",
+          "user-agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+        },
+        body: JSON.stringify({ context: INNERTUBE_CONTEXT, ...body }),
+      },
+    );
+    if (!res.ok) return null;
+    const j = (await res.json()) as T;
+    cacheSet(cacheKey, j, 5 * 60_000);
+    return j;
+  } catch {
+    return null;
+  }
+}
+
+
 
 // ================== Keyless YouTube HTML scrape ==================
 // Parses ytInitialData from youtube.com search HTML. No API key, no quota.
