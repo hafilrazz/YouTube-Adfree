@@ -43,6 +43,8 @@ export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
 
 
 function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isWatch = pathname.startsWith("/watch");
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-neutral-200 h-14 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center px-1.5 gap-1 sm:flex sm:justify-between sm:px-4 sm:gap-2">
       <div className="flex min-w-0 items-center gap-1 sm:gap-4 shrink-0">
@@ -59,15 +61,20 @@ function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
         </Link>
 
       </div>
-      <SearchBox />
+      {isWatch ? <div className="min-w-0 flex-1" /> : <SearchBox />}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        <button className="p-2 rounded-full hover:bg-neutral-100 hidden sm:inline-flex"><Video className="h-5 w-5" /></button>
-        <button className="p-2 rounded-full hover:bg-neutral-100 hidden sm:inline-flex"><Bell className="h-5 w-5" /></button>
-        <ProfileMenu />
+        {!isWatch && (
+          <>
+            <button className="p-2 rounded-full hover:bg-neutral-100 hidden sm:inline-flex"><Video className="h-5 w-5" /></button>
+            <button className="p-2 rounded-full hover:bg-neutral-100 hidden sm:inline-flex"><Bell className="h-5 w-5" /></button>
+            <ProfileMenu />
+          </>
+        )}
       </div>
     </header>
   );
 }
+
 
 
 function useDebounced<T>(value: T, delay = 250): T {
