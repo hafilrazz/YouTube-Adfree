@@ -190,6 +190,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setIndex(i);
     const vid = q[i]?.id;
     if (!vid) return;
+    wantsPlayRef.current = true;
+    silentRef.current?.play().catch(() => { /* ignore */ });
     if (readyRef.current && playerRef.current) {
       playerRef.current.loadVideoById(vid);
     } else {
@@ -200,14 +202,21 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => {
     const p = playerRef.current;
     if (!p || !current) return;
-    if (isPlaying) p.pauseVideo();
-    else p.playVideo();
+    if (isPlaying) {
+      wantsPlayRef.current = false;
+      p.pauseVideo();
+    } else {
+      wantsPlayRef.current = true;
+      silentRef.current?.play().catch(() => { /* ignore */ });
+      p.playVideo();
+    }
   }, [current, isPlaying]);
 
   const next = useCallback(() => {
     if (queue.length === 0) return;
     const ni = (index + 1) % queue.length;
     setIndex(ni);
+    wantsPlayRef.current = true;
     playerRef.current?.loadVideoById(queue[ni].id);
   }, [queue, index]);
 
@@ -217,8 +226,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     if (p && p.getCurrentTime() > 3) { p.seekTo(0, true); return; }
     const ni = (index - 1 + queue.length) % queue.length;
     setIndex(ni);
+    wantsPlayRef.current = true;
     playerRef.current?.loadVideoById(queue[ni].id);
   }, [queue, index]);
+
 
   const nextRef = useRef(next);
   useEffect(() => { nextRef.current = next; }, [next]);
