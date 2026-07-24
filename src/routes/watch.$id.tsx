@@ -178,8 +178,10 @@ function YouTubePlayer({ id, title }: { id: string; title: string }) {
       <div
         ref={mountRef}
         className="h-full w-full origin-center"
+        style={isFs ? { transform: "scale(1.34)" } : undefined}
         title={title}
       />
+
 
       <button
         type="button"
