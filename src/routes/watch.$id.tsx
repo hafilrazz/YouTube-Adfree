@@ -357,14 +357,15 @@ function CommentsSection({ videoId }: { videoId: string }) {
                       <Pin className="h-3 w-3" /> Pinned
                     </span>
                   )}
-                  <span className="font-semibold text-neutral-900 flex items-center gap-1">
+                  <span className="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1">
                     {c.author}
-                    {c.verified && <BadgeCheck className="h-3.5 w-3.5 text-neutral-500" />}
+                    {c.verified && <BadgeCheck className="h-3.5 w-3.5 text-neutral-500 dark:text-neutral-300" />}
                   </span>
-                  <span className="text-neutral-500">{c.time}</span>
+                  <span className="text-neutral-500 dark:text-neutral-300">{c.time}</span>
                 </div>
                 <p className="text-sm mt-1 whitespace-pre-wrap break-words">{c.text}</p>
-                <div className="flex items-center gap-4 mt-2 text-xs text-neutral-600">
+                <div className="flex items-center gap-4 mt-2 text-xs text-neutral-600 dark:text-neutral-300">
+
                   <span className="flex items-center gap-1">
                     <ThumbsUp className="h-3.5 w-3.5" /> {c.likes > 0 ? c.likes.toLocaleString() : ""}
                   </span>
