@@ -21,10 +21,11 @@ export function VideoCard({ video }: { video: Video }) {
         <img src={video.channelAvatar} alt={video.channel} className="h-9 w-9 rounded-full shrink-0" />
         <div className="min-w-0">
           <h3 className="text-sm font-semibold line-clamp-2 leading-snug">{video.title}</h3>
-          <p className="mt-1 text-xs text-neutral-600">{video.channel}</p>
-          <p className="text-xs text-neutral-600">
+          <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-300">{video.channel}</p>
+          <p className="text-xs text-neutral-600 dark:text-neutral-300">
             {video.views} views · {video.posted}
           </p>
+
         </div>
       </div>
     </Link>
