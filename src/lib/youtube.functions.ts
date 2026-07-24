@@ -590,6 +590,17 @@ export const searchYouTube = createServerFn({ method: "GET" })
       }
     }
 
+    // Tertiary: keyless YouTube HTML scrape (no API key, no quota)
+    if (!data.pageToken) {
+      try {
+        const scraped = await ytScrapeSearch(data.q);
+        if (scraped.length) return { items: scraped.slice(0, data.limit) };
+      } catch (e) {
+        console.warn("YT scrape search failed:", (e as Error).message);
+      }
+    }
+
+
     // Tertiary: YouTube Data API
     try {
       const s = await ytFetch<{ items?: YTSearchItem[]; nextPageToken?: string; prevPageToken?: string }>(
