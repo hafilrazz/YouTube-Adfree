@@ -1,6 +1,6 @@
 {
-  "name": "Premium",
-  "short_name": "Premium",
+  "name": "YouTube",
+  "short_name": "YouTube",
   "description": "Watch trending videos and listen to music.",
   "start_url": "/",
   "scope": "/",

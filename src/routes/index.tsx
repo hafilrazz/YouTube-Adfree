@@ -12,9 +12,9 @@ import { useLikes, useRecent, useSearchHistory, useVideosByIds } from "@/lib/use
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Premium — Recommended videos for you" },
+      { title: "YouTube — Recommended videos for you" },
       { name: "description", content: "Your personalized YouTube feed — recommendations based on videos you've liked." },
-      { property: "og:title", content: "Premium — Recommended videos for you" },
+      { property: "og:title", content: "YouTube — Recommended videos for you" },
       { property: "og:description", content: "Your personalized YouTube feed — recommendations based on videos you've liked." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
