@@ -278,9 +278,14 @@ function Watch() {
               <button className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2">
                 <Share2 className="h-4 w-4" /> Share
               </button>
-              <button className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2">
+              <a
+                href={`https://cobalt.tools/?u=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2"
+              >
                 <Download className="h-4 w-4" /> Download
-              </button>
+              </a>
               <button className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2">
                 <Scissors className="h-4 w-4" /> Clip
               </button>
