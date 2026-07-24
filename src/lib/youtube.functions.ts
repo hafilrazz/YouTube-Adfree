@@ -737,7 +737,17 @@ export const searchYouTube = createServerFn({ method: "GET" })
       }
     }
 
-    // Tertiary: keyless YouTube HTML scrape (no API key, no quota)
+    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
+    if (!data.pageToken) {
+      try {
+        const it = await innertubeSearch(data.q);
+        if (it.length) return { items: it.slice(0, data.limit) };
+      } catch (e) {
+        console.warn("InnerTube search failed:", (e as Error).message);
+      }
+    }
+
+    // Quaternary: keyless YouTube HTML scrape (no API key, no quota)
     if (!data.pageToken) {
       try {
         const scraped = await ytScrapeSearch(data.q);
