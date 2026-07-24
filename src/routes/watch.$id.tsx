@@ -173,9 +173,24 @@ function YouTubePlayer({ id, title }: { id: string; title: string }) {
   return (
     <div
       ref={wrapRef}
-      className={`relative rounded-xl overflow-hidden bg-black ${isFs ? "fixed inset-0 z-[2147483647] rounded-none" : "aspect-video"}`}
+      className={`relative overflow-hidden bg-black ${isFs ? "fixed inset-0 z-[2147483647] rounded-none" : "rounded-xl aspect-video"}`}
     >
-      <div ref={mountRef} className="h-full w-full" title={title} />
+      <div
+        ref={mountRef}
+        className="h-full w-full origin-center"
+        style={isFs && zoomFill ? { transform: "scale(1.35)" } : undefined}
+        title={title}
+      />
+      {isFs && (
+        <button
+          type="button"
+          onClick={() => setZoomFill((z) => !z)}
+          className="absolute bottom-2 right-14 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
+          aria-label={zoomFill ? "Fit to screen" : "Zoom to fill"}
+        >
+          {zoomFill ? <Shrink className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
+        </button>
+      )}
       <button
         type="button"
         onClick={toggleFullscreen}
