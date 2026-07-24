@@ -700,7 +700,17 @@ export const searchYouTube = createServerFn({ method: "GET" })
     if (!data.q.trim()) return { items: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=1800, stale-while-revalidate=3600");
 
-    // Primary: Piped
+    // Primary: InnerTube (fastest — one direct call to youtube.com, no key, no quota)
+    if (!data.pageToken) {
+      try {
+        const it = await innertubeSearch(data.q);
+        if (it.length) return { items: it.slice(0, data.limit) };
+      } catch (e) {
+        console.warn("InnerTube search failed:", (e as Error).message);
+      }
+    }
+
+    // Secondary: Piped (supports pagination)
     try {
       const path = data.pageToken
         ? `/nextpage/search?nextpage=${encodeURIComponent(data.pageToken)}&q=${encodeURIComponent(data.q)}&filter=videos`
@@ -721,7 +731,7 @@ export const searchYouTube = createServerFn({ method: "GET" })
       console.warn("Piped search failed:", (e as Error).message);
     }
 
-    // Secondary: Invidious (first page only — pagination uses ?page=N which we don't track)
+    // Tertiary: Invidious (first page only)
     if (!data.pageToken) {
       try {
         const items = await invidious<InvVideoItem[]>(
@@ -738,17 +748,7 @@ export const searchYouTube = createServerFn({ method: "GET" })
       }
     }
 
-    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
-    if (!data.pageToken) {
-      try {
-        const it = await innertubeSearch(data.q);
-        if (it.length) return { items: it.slice(0, data.limit) };
-      } catch (e) {
-        console.warn("InnerTube search failed:", (e as Error).message);
-      }
-    }
-
-    // Quaternary: keyless YouTube HTML scrape (no API key, no quota)
+    // Quaternary: keyless YouTube HTML scrape
     if (!data.pageToken) {
       try {
         const scraped = await ytScrapeSearch(data.q);
@@ -757,6 +757,7 @@ export const searchYouTube = createServerFn({ method: "GET" })
         console.warn("YT scrape search failed:", (e as Error).message);
       }
     }
+
 
 
     // Tertiary: YouTube Data API
