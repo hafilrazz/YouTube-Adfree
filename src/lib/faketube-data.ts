@@ -3,6 +3,7 @@ export type Video = {
   title: string;
   channel: string;
   channelAvatar: string;
+  channelId?: string;
   views: string;
   posted: string;
   duration: string;
