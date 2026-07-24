@@ -511,6 +511,17 @@ export const getTrending = createServerFn({ method: "GET" })
       console.warn("Invidious trending failed:", (e as Error).message);
     }
 
+    // Tertiary: keyless YouTube HTML scrape
+    try {
+      const scraped = isTrending
+        ? await ytScrapeTrending()
+        : await ytScrapeSearch(data.category);
+      if (scraped.length) return scraped.slice(0, 32);
+    } catch (e) {
+      console.warn("YT scrape trending failed:", (e as Error).message);
+    }
+
+
     // Tertiary: YouTube Data API
     try {
       if (isTrending) {
