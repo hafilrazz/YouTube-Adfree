@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
-import { Route as ReelsRouteImport } from './routes/reels'
 import { Route as PlaylistRouteImport } from './routes/playlist'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as LikedRouteImport } from './routes/liked'
@@ -23,11 +22,6 @@ import { Route as MusicPlaylistRouteImport } from './routes/music.playlist'
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReelsRoute = ReelsRouteImport.update({
-  id: '/reels',
-  path: '/reels',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlaylistRoute = PlaylistRouteImport.update({
@@ -78,7 +72,6 @@ export interface FileRoutesByFullPath {
   '/liked': typeof LikedRoute
   '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
-  '/reels': typeof ReelsRoute
   '/search': typeof SearchRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
@@ -90,7 +83,6 @@ export interface FileRoutesByTo {
   '/liked': typeof LikedRoute
   '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
-  '/reels': typeof ReelsRoute
   '/search': typeof SearchRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
@@ -103,7 +95,6 @@ export interface FileRoutesById {
   '/liked': typeof LikedRoute
   '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
-  '/reels': typeof ReelsRoute
   '/search': typeof SearchRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
@@ -117,7 +108,6 @@ export interface FileRouteTypes {
     | '/liked'
     | '/music'
     | '/playlist'
-    | '/reels'
     | '/search'
     | '/music/playlist'
     | '/watch/$id'
@@ -129,7 +119,6 @@ export interface FileRouteTypes {
     | '/liked'
     | '/music'
     | '/playlist'
-    | '/reels'
     | '/search'
     | '/music/playlist'
     | '/watch/$id'
@@ -141,7 +130,6 @@ export interface FileRouteTypes {
     | '/liked'
     | '/music'
     | '/playlist'
-    | '/reels'
     | '/search'
     | '/music/playlist'
     | '/watch/$id'
@@ -154,7 +142,6 @@ export interface RootRouteChildren {
   LikedRoute: typeof LikedRoute
   MusicRoute: typeof MusicRouteWithChildren
   PlaylistRoute: typeof PlaylistRoute
-  ReelsRoute: typeof ReelsRoute
   SearchRoute: typeof SearchRoute
   WatchIdRoute: typeof WatchIdRoute
 }
@@ -166,13 +153,6 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reels': {
-      id: '/reels'
-      path: '/reels'
-      fullPath: '/reels'
-      preLoaderRoute: typeof ReelsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/playlist': {
@@ -251,7 +231,6 @@ const rootRouteChildren: RootRouteChildren = {
   LikedRoute: LikedRoute,
   MusicRoute: MusicRouteWithChildren,
   PlaylistRoute: PlaylistRoute,
-  ReelsRoute: ReelsRoute,
   SearchRoute: SearchRoute,
   WatchIdRoute: WatchIdRoute,
 }

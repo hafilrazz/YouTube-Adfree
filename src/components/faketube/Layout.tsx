@@ -265,7 +265,8 @@ function SearchBox() {
 function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpen: boolean; onCloseMobile: () => void }) {
   const items = [
     { icon: Home, label: "Home", to: "/" as const },
-    { icon: Film, label: "Reels", to: "/reels" as const },
+
+
 
 
 
