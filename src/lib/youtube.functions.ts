@@ -381,8 +381,86 @@ async function innertube<T = unknown>(endpoint: string, body: Record<string, unk
     return j;
   } catch {
     return null;
-  }
 }
+
+async function innertubeSearch(q: string): Promise<Video[]> {
+  const j = await innertube<unknown>("search", { query: q, params: "EgIQAQ%3D%3D" }); // EgIQAQ%3D%3D = filter: videos
+  if (!j) return [];
+  const renderers: YtVideoRenderer[] = [];
+  walkVideoRenderers(j, renderers);
+  const seen = new Set<string>();
+  const out: Video[] = [];
+  for (const r of renderers) {
+    const v = ytRendererToVideo(r);
+    if (v && !seen.has(v.id)) { seen.add(v.id); out.push(v); }
+  }
+  return out;
+}
+
+async function innertubeTrending(): Promise<Video[]> {
+  const j = await innertube<unknown>("browse", { browseId: "FEtrending" });
+  if (!j) return [];
+  const renderers: YtVideoRenderer[] = [];
+  walkVideoRenderers(j, renderers);
+  const seen = new Set<string>();
+  const out: Video[] = [];
+  for (const r of renderers) {
+    const v = ytRendererToVideo(r);
+    if (v && !seen.has(v.id)) { seen.add(v.id); out.push(v); }
+  }
+  return out;
+}
+
+interface ItNextResponse {
+  contents?: {
+    twoColumnWatchNextResults?: {
+      results?: { results?: { contents?: unknown[] } };
+      secondaryResults?: { secondaryResults?: { results?: unknown[] } };
+    };
+  };
+  videoDetails?: {
+    videoId?: string;
+    title?: string;
+    shortDescription?: string;
+    lengthSeconds?: string;
+    viewCount?: string;
+    author?: string;
+    thumbnail?: { thumbnails?: YtThumb[] };
+  };
+}
+
+async function innertubeWatch(id: string): Promise<{ video: Video | null; related: Video[] }> {
+  const j = await innertube<ItNextResponse>("next", { videoId: id });
+  if (!j) return { video: null, related: [] };
+  let video: Video | null = null;
+  const vd = j.videoDetails;
+  if (vd?.videoId) {
+    const thumbs = vd.thumbnail?.thumbnails ?? [];
+    video = {
+      id: vd.videoId,
+      title: vd.title ?? "",
+      channel: vd.author ?? "",
+      channelAvatar: avatar(vd.author ?? vd.videoId),
+      views: vd.viewCount ? formatViews(vd.viewCount) : "—",
+      posted: "",
+      duration: vd.lengthSeconds ? formatSeconds(Number(vd.lengthSeconds)) : "",
+      thumbnail: thumbs.length ? thumbs[thumbs.length - 1].url! : `https://i.ytimg.com/vi/${vd.videoId}/hqdefault.jpg`,
+      description: vd.shortDescription ?? "",
+    };
+  }
+  const secondary = j.contents?.twoColumnWatchNextResults?.secondaryResults?.secondaryResults?.results ?? [];
+  const renderers: YtVideoRenderer[] = [];
+  walkVideoRenderers(secondary, renderers);
+  const seen = new Set<string>();
+  const related: Video[] = [];
+  for (const r of renderers) {
+    const v = ytRendererToVideo(r);
+    if (v && v.id !== id && !seen.has(v.id)) { seen.add(v.id); related.push(v); }
+  }
+  return { video, related: related.slice(0, 20) };
+}
+
+
 
 
 
