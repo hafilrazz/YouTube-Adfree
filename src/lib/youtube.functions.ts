@@ -639,7 +639,15 @@ export const getTrending = createServerFn({ method: "GET" })
       console.warn("Invidious trending failed:", (e as Error).message);
     }
 
-    // Tertiary: keyless YouTube HTML scrape
+    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
+    try {
+      const it = isTrending ? await innertubeTrending() : await innertubeSearch(data.category);
+      if (it.length) return it.slice(0, 32);
+    } catch (e) {
+      console.warn("InnerTube trending failed:", (e as Error).message);
+    }
+
+    // Quaternary: keyless YouTube HTML scrape
     try {
       const scraped = isTrending
         ? await ytScrapeTrending()
