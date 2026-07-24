@@ -72,7 +72,7 @@ function YouTubePlayer({ id, title }: { id: string; title: string }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [isFs, setIsFs] = useState(false);
-  const [zoomFill, setZoomFill] = useState(false);
+  
 
   useEffect(() => {
     const onFsChange = async () => {
