@@ -1381,3 +1381,73 @@ export const getLive = createServerFn({ method: "GET" })
     }
 
   });
+
+// ================== Subscriptions feed ==================
+
+export const getSubscriptionsFeed = createServerFn({ method: "GET" })
+  .inputValidator((d: { channelIds: string[] }) => ({
+    channelIds: (Array.isArray(d?.channelIds) ? d.channelIds : [])
+      .slice(0, 30)
+      .map((x) => String(x))
+      .filter((x) => /^[\w-]{10,}$/.test(x)),
+  }))
+  .handler(async ({ data }): Promise<Video[]> => {
+    if (!data.channelIds.length) return [];
+    setResponseHeader("cache-control", "private, max-age=300, stale-while-revalidate=1800");
+
+    const results = await Promise.allSettled(
+      data.channelIds.map(async (cid) => {
+        // Piped channel endpoint returns relatedStreams (recent uploads)
+        try {
+          const r = await piped<{ relatedStreams?: PipedItem[] }>(
+            `/channel/${encodeURIComponent(cid)}`,
+          );
+          return (r.relatedStreams ?? [])
+            .map(pipedToVideo)
+            .filter((v): v is Video => Boolean(v))
+            .map((v) => ({ ...v, channelId: v.channelId || cid }));
+        } catch {}
+        try {
+          const r = await invidious<{ latestVideos?: InvVideoItem[] }>(
+            `/api/v1/channels/${encodeURIComponent(cid)}`,
+          );
+          return (r.latestVideos ?? [])
+            .map(invToVideo)
+            .filter((v): v is Video => Boolean(v))
+            .map((v) => ({ ...v, channelId: v.channelId || cid }));
+        } catch {}
+        return [] as Video[];
+      }),
+    );
+
+    const collected: Video[] = [];
+    for (const r of results) {
+      if (r.status === "fulfilled") collected.push(...r.value);
+    }
+
+    // Sort roughly by posted recency using the human "posted" string, fallback to shuffle
+    // We just dedupe and interleave — no reliable timestamp — then cap.
+    const seen = new Set<string>();
+    const unique: Video[] = [];
+    for (const v of collected) {
+      if (seen.has(v.id)) continue;
+      seen.add(v.id);
+      unique.push(v);
+    }
+    // Interleave by channel so no single channel dominates the top
+    const byChannel = new Map<string, Video[]>();
+    for (const v of unique) {
+      const k = v.channelId || "_";
+      if (!byChannel.has(k)) byChannel.set(k, []);
+      byChannel.get(k)!.push(v);
+    }
+    const buckets = Array.from(byChannel.values());
+    const interleaved: Video[] = [];
+    let i = 0;
+    while (interleaved.length < 60 && buckets.some((b) => b.length)) {
+      const b = buckets[i % buckets.length];
+      if (b.length) interleaved.push(b.shift()!);
+      i++;
+    }
+    return interleaved;
+  });
