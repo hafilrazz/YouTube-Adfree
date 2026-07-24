@@ -109,7 +109,7 @@ function Watch() {
     <FakeTubeLayout>
       <div className="flex flex-col xl:flex-row gap-6 w-full min-w-0">
         <div className="flex-1 min-w-0">
-          <YouTubePlayer id={video.id} title={video.title} />
+          <VideoSlot />
 
 
           <h1 className="mt-4 text-lg sm:text-xl font-bold break-words">{video.title}</h1>
