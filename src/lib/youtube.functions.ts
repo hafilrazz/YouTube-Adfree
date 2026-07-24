@@ -894,6 +894,7 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
         title: s.title ?? "",
         channel: s.author ?? "",
         channelAvatar: invAvatar(s.authorThumbnails, s.author ?? data.id),
+        channelId: s.authorId ?? "",
         views:
           typeof s.viewCount === "number" && s.viewCount >= 0
             ? formatViews(String(s.viewCount))
