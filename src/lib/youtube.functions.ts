@@ -336,6 +336,134 @@ function ytVideoToVideo(it: YTVideoItem): Video | null {
 }
 
 
+// ================== InnerTube (YouTube's own guest API) ==================
+// Keyless from our side: uses YouTube's public web-client key that ships in
+// every youtube.com page. No API-key registration, no per-project quota — this
+// is the same endpoint the youtube.com web app itself calls.
+
+const INNERTUBE_KEY = "AIzaSyAO_FL9IsIrOS3wgxHhpkGkY74dxHb0X8Y";
+const INNERTUBE_CONTEXT = {
+  client: {
+    clientName: "WEB",
+    clientVersion: "2.20240726.00.00",
+    hl: "en",
+    gl: "US",
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36,gzip(gfe)",
+  },
+};
+
+async function innertube<T = unknown>(endpoint: string, body: Record<string, unknown>): Promise<T | null> {
+  const cacheKey = `it:${endpoint}:${JSON.stringify(body)}`;
+  const cached = cacheGet<T>(cacheKey);
+  if (cached) return cached;
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/youtubei/v1/${endpoint}?key=${INNERTUBE_KEY}&prettyPrint=false`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-youtube-client-name": "1",
+          "x-youtube-client-version": "2.20240726.00.00",
+          "accept-language": "en-US,en;q=0.9",
+          origin: "https://www.youtube.com",
+          referer: "https://www.youtube.com/",
+          "user-agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+        },
+        body: JSON.stringify({ context: INNERTUBE_CONTEXT, ...body }),
+      },
+    );
+    if (!res.ok) return null;
+    const j = (await res.json()) as T;
+    cacheSet(cacheKey, j, 5 * 60_000);
+    return j;
+  } catch {
+    return null;
+  }
+}
+
+async function innertubeSearch(q: string): Promise<Video[]> {
+  const j = await innertube<unknown>("search", { query: q, params: "EgIQAQ%3D%3D" }); // EgIQAQ%3D%3D = filter: videos
+  if (!j) return [];
+  const renderers: YtVideoRenderer[] = [];
+  walkVideoRenderers(j, renderers);
+  const seen = new Set<string>();
+  const out: Video[] = [];
+  for (const r of renderers) {
+    const v = ytRendererToVideo(r);
+    if (v && !seen.has(v.id)) { seen.add(v.id); out.push(v); }
+  }
+  return out;
+}
+
+async function innertubeTrending(): Promise<Video[]> {
+  const j = await innertube<unknown>("browse", { browseId: "FEtrending" });
+  if (!j) return [];
+  const renderers: YtVideoRenderer[] = [];
+  walkVideoRenderers(j, renderers);
+  const seen = new Set<string>();
+  const out: Video[] = [];
+  for (const r of renderers) {
+    const v = ytRendererToVideo(r);
+    if (v && !seen.has(v.id)) { seen.add(v.id); out.push(v); }
+  }
+  return out;
+}
+
+interface ItNextResponse {
+  contents?: {
+    twoColumnWatchNextResults?: {
+      results?: { results?: { contents?: unknown[] } };
+      secondaryResults?: { secondaryResults?: { results?: unknown[] } };
+    };
+  };
+  videoDetails?: {
+    videoId?: string;
+    title?: string;
+    shortDescription?: string;
+    lengthSeconds?: string;
+    viewCount?: string;
+    author?: string;
+    thumbnail?: { thumbnails?: YtThumb[] };
+  };
+}
+
+async function innertubeWatch(id: string): Promise<{ video: Video | null; related: Video[] }> {
+  const j = await innertube<ItNextResponse>("next", { videoId: id });
+  if (!j) return { video: null, related: [] };
+  let video: Video | null = null;
+  const vd = j.videoDetails;
+  if (vd?.videoId) {
+    const thumbs = vd.thumbnail?.thumbnails ?? [];
+    video = {
+      id: vd.videoId,
+      title: vd.title ?? "",
+      channel: vd.author ?? "",
+      channelAvatar: avatar(vd.author ?? vd.videoId),
+      views: vd.viewCount ? formatViews(vd.viewCount) : "—",
+      posted: "",
+      duration: vd.lengthSeconds ? formatSeconds(Number(vd.lengthSeconds)) : "",
+      thumbnail: thumbs.length ? thumbs[thumbs.length - 1].url! : `https://i.ytimg.com/vi/${vd.videoId}/hqdefault.jpg`,
+      description: vd.shortDescription ?? "",
+    };
+  }
+  const secondary = j.contents?.twoColumnWatchNextResults?.secondaryResults?.secondaryResults?.results ?? [];
+  const renderers: YtVideoRenderer[] = [];
+  walkVideoRenderers(secondary, renderers);
+  const seen = new Set<string>();
+  const related: Video[] = [];
+  for (const r of renderers) {
+    const v = ytRendererToVideo(r);
+    if (v && v.id !== id && !seen.has(v.id)) { seen.add(v.id); related.push(v); }
+  }
+  return { video, related: related.slice(0, 20) };
+}
+
+
+
+
 
 // ================== Keyless YouTube HTML scrape ==================
 // Parses ytInitialData from youtube.com search HTML. No API key, no quota.
@@ -511,7 +639,15 @@ export const getTrending = createServerFn({ method: "GET" })
       console.warn("Invidious trending failed:", (e as Error).message);
     }
 
-    // Tertiary: keyless YouTube HTML scrape
+    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
+    try {
+      const it = isTrending ? await innertubeTrending() : await innertubeSearch(data.category);
+      if (it.length) return it.slice(0, 32);
+    } catch (e) {
+      console.warn("InnerTube trending failed:", (e as Error).message);
+    }
+
+    // Quaternary: keyless YouTube HTML scrape
     try {
       const scraped = isTrending
         ? await ytScrapeTrending()
@@ -601,7 +737,17 @@ export const searchYouTube = createServerFn({ method: "GET" })
       }
     }
 
-    // Tertiary: keyless YouTube HTML scrape (no API key, no quota)
+    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
+    if (!data.pageToken) {
+      try {
+        const it = await innertubeSearch(data.q);
+        if (it.length) return { items: it.slice(0, data.limit) };
+      } catch (e) {
+        console.warn("InnerTube search failed:", (e as Error).message);
+      }
+    }
+
+    // Quaternary: keyless YouTube HTML scrape (no API key, no quota)
     if (!data.pageToken) {
       try {
         const scraped = await ytScrapeSearch(data.q);
@@ -747,7 +893,15 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
       console.warn("Invidious /videos failed:", (e as Error).message);
     }
 
-    // Tertiary: YouTube Data API
+    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
+    try {
+      const r = await innertubeWatch(data.id);
+      if (r.video || r.related.length) return r;
+    } catch (e) {
+      console.warn("InnerTube watch failed:", (e as Error).message);
+    }
+
+    // Quaternary: YouTube Data API
     try {
       const d = await ytFetch<{ items?: YTVideoItem[] }>(
         `/videos?part=snippet,contentDetails,statistics,liveStreamingDetails&id=${encodeURIComponent(data.id)}`,
