@@ -70,6 +70,7 @@ function Watch() {
   const related: Video[] = data?.related ?? [];
 
   const subscriptions = useSubscriptions();
+  const { openVideo } = useVideoPlayer();
   const [descExpanded, setDescExpanded] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const likes = useLikes();
@@ -78,6 +79,16 @@ function Watch() {
   const { record } = useRecent();
 
   useEffect(() => { record(id); }, [id, record]);
+
+  useEffect(() => {
+    openVideo({
+      id: video.id,
+      title: video.title,
+      channel: video.channel,
+      thumbnail: video.thumbnail,
+    });
+  }, [video.id, video.title, video.channel, video.thumbnail, openVideo]);
+
 
   const liked = likes.isLiked(id);
   const saved = playlist.isSaved(id);
