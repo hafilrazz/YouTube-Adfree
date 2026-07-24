@@ -102,7 +102,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/app-icon.png", type: "image/png" },
       { rel: "apple-touch-icon", href: "/app-icon.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
+      // Speed up first video load: warm TLS/DNS to YouTube endpoints.
+      { rel: "preconnect", href: "https://www.youtube.com", crossOrigin: "" },
+      { rel: "preconnect", href: "https://www.youtube-nocookie.com", crossOrigin: "" },
+      { rel: "preconnect", href: "https://i.ytimg.com", crossOrigin: "" },
+      { rel: "preconnect", href: "https://s.ytimg.com", crossOrigin: "" },
+      { rel: "dns-prefetch", href: "https://googlevideo.com" },
     ],
+
 
   }),
   shellComponent: RootShell,
