@@ -318,13 +318,23 @@ function Watch() {
                 <p className="text-xs text-neutral-600">YouTube channel</p>
               </div>
               <button
-                onClick={() => setSubscribed((v) => !v)}
-                className={`ml-4 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 ${
-                  subscribed ? "bg-neutral-100 text-neutral-900" : "bg-neutral-900 text-white"
+                onClick={() =>
+                  subscriptions.toggle({
+                    channelId: video.channelId ?? "",
+                    name: video.channel,
+                    avatar: video.channelAvatar,
+                  })
+                }
+                disabled={!video.channelId}
+                className={`ml-4 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  subscriptions.isSubscribed(video.channelId ?? "")
+                    ? "bg-neutral-100 text-neutral-900"
+                    : "bg-neutral-900 text-white"
                 }`}
+                title={!video.channelId ? "Channel unavailable" : ""}
               >
-                {subscribed && <Bell className="h-4 w-4" />}
-                {subscribed ? "Subscribed" : "Subscribe"}
+                {subscriptions.isSubscribed(video.channelId ?? "") && <Bell className="h-4 w-4" />}
+                {subscriptions.isSubscribed(video.channelId ?? "") ? "Subscribed" : "Subscribe"}
               </button>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
