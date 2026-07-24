@@ -302,7 +302,10 @@ function Watch() {
             <Link to="/watch/$id" params={{ id: v.id }} key={v.id} className="flex gap-2 group">
               <div className="relative w-36 sm:w-40 aspect-video rounded-lg overflow-hidden shrink-0 bg-neutral-200">
                 <img src={v.thumbnail} alt={v.title} className="h-full w-full object-cover" />
-                <span className={`absolute bottom-1 right-1 px-1 text-[10px] rounded ${v.duration === "LIVE" ? "bg-red-600 text-white" : "bg-black/80 text-white"}`}>{v.duration}</span>
+                {v.duration ? (
+                  <span className={`absolute bottom-1 right-1 px-1 text-[10px] rounded ${v.duration === "LIVE" ? "bg-red-600 text-white" : "bg-black/80 text-white"}`}>{v.duration}</span>
+                ) : null}
+
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold line-clamp-2 leading-snug break-words">{v.title}</h3>

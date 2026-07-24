@@ -11,11 +11,14 @@ export function VideoCard({ video }: { video: Video }) {
           loading="lazy"
           className="h-full w-full object-cover group-hover:rounded-none transition-all"
         />
-        <span className={`absolute bottom-2 right-2 px-1.5 py-0.5 text-xs font-medium rounded ${
-          video.duration === "LIVE" ? "bg-red-600 text-white" : "bg-black/80 text-white"
-        }`}>
-          {video.duration}
-        </span>
+        {video.duration ? (
+          <span className={`absolute bottom-2 right-2 px-1.5 py-0.5 text-xs font-medium rounded ${
+            video.duration === "LIVE" ? "bg-red-600 text-white" : "bg-black/80 text-white"
+          }`}>
+            {video.duration}
+          </span>
+        ) : null}
+
       </div>
       <div className="mt-3 flex gap-3">
         <img src={video.channelAvatar} alt={video.channel} className="h-9 w-9 rounded-full shrink-0" />
