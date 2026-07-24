@@ -603,7 +603,15 @@ export const getTrending = createServerFn({ method: "GET" })
 
     const isTrending = data.category === "All" || data.category === "Trending";
 
-    // Primary: Piped
+    // Primary: InnerTube (YouTube's own guest API — single fast endpoint, no key, no quota)
+    try {
+      const it = isTrending ? await innertubeTrending() : await innertubeSearch(data.category);
+      if (it.length) return it.slice(0, 32);
+    } catch (e) {
+      console.warn("InnerTube trending failed:", (e as Error).message);
+    }
+
+    // Secondary: Piped (raced across mirrors)
     try {
       if (isTrending) {
         const items = await piped<PipedItem[]>(`/trending?region=${encodeURIComponent(data.region)}`);
@@ -620,7 +628,7 @@ export const getTrending = createServerFn({ method: "GET" })
       console.warn("Piped trending failed:", (e as Error).message);
     }
 
-    // Secondary: Invidious
+    // Tertiary: Invidious
     try {
       if (isTrending) {
         const items = await invidious<InvVideoItem[]>(
@@ -639,14 +647,6 @@ export const getTrending = createServerFn({ method: "GET" })
       console.warn("Invidious trending failed:", (e as Error).message);
     }
 
-    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
-    try {
-      const it = isTrending ? await innertubeTrending() : await innertubeSearch(data.category);
-      if (it.length) return it.slice(0, 32);
-    } catch (e) {
-      console.warn("InnerTube trending failed:", (e as Error).message);
-    }
-
     // Quaternary: keyless YouTube HTML scrape
     try {
       const scraped = isTrending
@@ -656,6 +656,7 @@ export const getTrending = createServerFn({ method: "GET" })
     } catch (e) {
       console.warn("YT scrape trending failed:", (e as Error).message);
     }
+
 
 
     // Tertiary: YouTube Data API
