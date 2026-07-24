@@ -336,6 +336,133 @@ function ytVideoToVideo(it: YTVideoItem): Video | null {
 }
 
 
+
+// ================== Keyless YouTube HTML scrape ==================
+// Parses ytInitialData from youtube.com search HTML. No API key, no quota.
+
+interface YtRun { text?: string }
+interface YtRuns { runs?: YtRun[]; simpleText?: string }
+interface YtThumb { url?: string; width?: number }
+interface YtVideoRenderer {
+  videoId?: string;
+  title?: YtRuns;
+  longBylineText?: { runs?: { text?: string; navigationEndpoint?: { browseEndpoint?: { browseId?: string } } }[] };
+  shortBylineText?: { runs?: { text?: string }[] };
+  publishedTimeText?: YtRuns;
+  lengthText?: YtRuns;
+  viewCountText?: YtRuns;
+  shortViewCountText?: YtRuns;
+  thumbnail?: { thumbnails?: YtThumb[] };
+  channelThumbnailSupportedRenderers?: {
+    channelThumbnailWithLinkRenderer?: { thumbnail?: { thumbnails?: YtThumb[] } };
+  };
+  descriptionSnippet?: YtRuns;
+  badges?: unknown;
+  ownerBadges?: unknown;
+}
+
+function runsToText(r: YtRuns | undefined): string {
+  if (!r) return "";
+  if (r.simpleText) return r.simpleText;
+  return (r.runs ?? []).map((x) => x.text ?? "").join("");
+}
+
+function parseViews(s: string): string {
+  const m = s.match(/([\d,.]+)\s*([KMB]?)/i);
+  if (!m) return s || "—";
+  const n = Number(m[1].replace(/,/g, ""));
+  if (!isFinite(n)) return s;
+  const mul = m[2].toUpperCase() === "K" ? 1e3 : m[2].toUpperCase() === "M" ? 1e6 : m[2].toUpperCase() === "B" ? 1e9 : 1;
+  return formatViews(String(Math.round(n * mul)));
+}
+
+function ytRendererToVideo(r: YtVideoRenderer): Video | null {
+  const id = r.videoId;
+  if (!id) return null;
+  const channel = runsToText(r.longBylineText as YtRuns | undefined) || (r.shortBylineText?.runs?.[0]?.text ?? "");
+  const chAvatar =
+    r.channelThumbnailSupportedRenderers?.channelThumbnailWithLinkRenderer?.thumbnail?.thumbnails?.[0]?.url;
+  const thumbs = r.thumbnail?.thumbnails ?? [];
+  const thumb = thumbs.length ? thumbs[thumbs.length - 1].url : `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+  const viewsRaw = runsToText(r.viewCountText) || runsToText(r.shortViewCountText);
+  const duration = runsToText(r.lengthText);
+  return {
+    id,
+    title: runsToText(r.title),
+    channel,
+    channelAvatar: chAvatar || avatar(channel || id),
+    views: viewsRaw ? parseViews(viewsRaw.replace(/\s*views?/i, "")) : "—",
+    posted: runsToText(r.publishedTimeText),
+    duration: duration || "",
+    thumbnail: thumb ?? `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    description: runsToText(r.descriptionSnippet),
+  };
+}
+
+async function ytScrapeHtml(url: string): Promise<unknown | null> {
+  const cacheKey = `scrape:${url}`;
+  const cached = cacheGet<unknown>(cacheKey);
+  if (cached) return cached;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+        "accept-language": "en-US,en;q=0.9",
+        cookie: "CONSENT=YES+cb; SOCS=CAI",
+      },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const m = html.match(/var\s+ytInitialData\s*=\s*(\{.+?\});\s*<\/script>/s);
+    if (!m) return null;
+    const data = JSON.parse(m[1]);
+    cacheSet(cacheKey, data, 5 * 60_000);
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function walkVideoRenderers(node: unknown, out: YtVideoRenderer[]): void {
+  if (!node) return;
+  if (Array.isArray(node)) { for (const n of node) walkVideoRenderers(n, out); return; }
+  if (typeof node !== "object") return;
+  const obj = node as Record<string, unknown>;
+  if (obj.videoRenderer) out.push(obj.videoRenderer as YtVideoRenderer);
+  if (obj.compactVideoRenderer) out.push(obj.compactVideoRenderer as YtVideoRenderer);
+  for (const k in obj) walkVideoRenderers(obj[k], out);
+}
+
+async function ytScrapeSearch(q: string): Promise<Video[]> {
+  const data = await ytScrapeHtml(`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}&hl=en&gl=US`);
+  if (!data) return [];
+  const renderers: YtVideoRenderer[] = [];
+  walkVideoRenderers(data, renderers);
+  const seen = new Set<string>();
+  const videos: Video[] = [];
+  for (const r of renderers) {
+    const v = ytRendererToVideo(r);
+    if (v && !seen.has(v.id)) { seen.add(v.id); videos.push(v); }
+  }
+  return videos;
+}
+
+async function ytScrapeTrending(): Promise<Video[]> {
+  const data = await ytScrapeHtml(`https://www.youtube.com/feed/trending?hl=en&gl=US`);
+  if (!data) return [];
+  const renderers: YtVideoRenderer[] = [];
+  walkVideoRenderers(data, renderers);
+  const seen = new Set<string>();
+  const videos: Video[] = [];
+  for (const r of renderers) {
+    const v = ytRendererToVideo(r);
+    if (v && !seen.has(v.id)) { seen.add(v.id); videos.push(v); }
+  }
+  return videos;
+}
+
+
 // ================== Trending ==================
 
 export const getTrending = createServerFn({ method: "GET" })
