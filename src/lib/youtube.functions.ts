@@ -381,6 +381,7 @@ async function innertube<T = unknown>(endpoint: string, body: Record<string, unk
     return j;
   } catch {
     return null;
+  }
 }
 
 async function innertubeSearch(q: string): Promise<Video[]> {
