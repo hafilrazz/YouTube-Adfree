@@ -78,6 +78,11 @@ function loadYouTubeApi(): Promise<YTNS> {
   return ytApiPromise;
 }
 
+// 1-second silent WAV, looped, keeps the page's audio focus alive so mobile
+// browsers don't suspend the hidden YouTube iframe when the screen locks.
+const SILENT_WAV =
+  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -89,6 +94,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const pendingRef = useRef<string | null>(null);
+  const wantsPlayRef = useRef(false); // user intent — separate from actual player state
+  const silentRef = useRef<HTMLAudioElement | null>(null);
 
   const current = queue[index] ?? null;
 
@@ -114,7 +121,16 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
           onStateChange: (e) => {
             const S = window.YT!.PlayerState;
             if (e.data === S.PLAYING) setIsPlaying(true);
-            else if (e.data === S.PAUSED) setIsPlaying(false);
+            else if (e.data === S.PAUSED) {
+              setIsPlaying(false);
+              // Mobile browsers auto-pause iframes when the tab/screen backgrounds.
+              // If the user still wants playback, resume immediately.
+              if (wantsPlayRef.current) {
+                setTimeout(() => {
+                  try { playerRef.current?.playVideo(); } catch { /* ignore */ }
+                }, 50);
+              }
+            }
             else if (e.data === S.ENDED) nextRef.current?.();
           },
         },
@@ -122,6 +138,38 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     });
     return () => { cancelled = true; };
   }, []);
+
+  // Keep audio focus alive across screen locks with a looping silent WAV.
+  useEffect(() => {
+    const a = silentRef.current;
+    if (!a) return;
+    a.loop = true;
+    a.volume = 0;
+    if (isPlaying) {
+      a.play().catch(() => { /* ignore autoplay rejection */ });
+    } else {
+      a.pause();
+    }
+  }, [isPlaying]);
+
+  // When the tab is hidden (screen lock), the YT iframe often self-pauses.
+  // Nudge it back to playing if that's what the user asked for.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden && wantsPlayRef.current) {
+        // Retry a few times — some browsers take a moment to allow it.
+        let tries = 0;
+        const iv = window.setInterval(() => {
+          tries += 1;
+          try { playerRef.current?.playVideo(); } catch { /* ignore */ }
+          if (tries >= 5) window.clearInterval(iv);
+        }, 300);
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
 
   // Poll progress
   useEffect(() => {
@@ -142,6 +190,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setIndex(i);
     const vid = q[i]?.id;
     if (!vid) return;
+    wantsPlayRef.current = true;
+    silentRef.current?.play().catch(() => { /* ignore */ });
     if (readyRef.current && playerRef.current) {
       playerRef.current.loadVideoById(vid);
     } else {
@@ -152,14 +202,21 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => {
     const p = playerRef.current;
     if (!p || !current) return;
-    if (isPlaying) p.pauseVideo();
-    else p.playVideo();
+    if (isPlaying) {
+      wantsPlayRef.current = false;
+      p.pauseVideo();
+    } else {
+      wantsPlayRef.current = true;
+      silentRef.current?.play().catch(() => { /* ignore */ });
+      p.playVideo();
+    }
   }, [current, isPlaying]);
 
   const next = useCallback(() => {
     if (queue.length === 0) return;
     const ni = (index + 1) % queue.length;
     setIndex(ni);
+    wantsPlayRef.current = true;
     playerRef.current?.loadVideoById(queue[ni].id);
   }, [queue, index]);
 
@@ -169,8 +226,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     if (p && p.getCurrentTime() > 3) { p.seekTo(0, true); return; }
     const ni = (index - 1 + queue.length) % queue.length;
     setIndex(ni);
+    wantsPlayRef.current = true;
     playerRef.current?.loadVideoById(queue[ni].id);
   }, [queue, index]);
+
 
   const nextRef = useRef(next);
   useEffect(() => { nextRef.current = next; }, [next]);
@@ -193,8 +252,16 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         { src: current.cover, sizes: "1280x720", type: "image/jpeg" },
       ],
     });
-    navigator.mediaSession.setActionHandler("play", () => playerRef.current?.playVideo());
-    navigator.mediaSession.setActionHandler("pause", () => playerRef.current?.pauseVideo());
+    navigator.mediaSession.setActionHandler("play", () => {
+      wantsPlayRef.current = true;
+      silentRef.current?.play().catch(() => { /* ignore */ });
+      playerRef.current?.playVideo();
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      wantsPlayRef.current = false;
+      playerRef.current?.pauseVideo();
+    });
+
     navigator.mediaSession.setActionHandler("previoustrack", () => prev());
     navigator.mediaSession.setActionHandler("nexttrack", () => next());
     navigator.mediaSession.setActionHandler("seekto", (e) => {
@@ -240,9 +307,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       >
         <div ref={hostRef} />
       </div>
+      {/* Silent looping audio keeps the media session alive on locked screens */}
+      <audio ref={silentRef} src={SILENT_WAV} loop playsInline aria-hidden style={{ display: "none" }} />
     </MusicCtx.Provider>
   );
 }
+
 
 export function useMusic() {
   const ctx = useContext(MusicCtx);
