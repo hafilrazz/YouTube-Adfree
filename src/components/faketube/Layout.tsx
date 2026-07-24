@@ -278,11 +278,8 @@ function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpe
     { icon: Clock, label: "Watch later", to: "/playlist" as const },
     { icon: ThumbsUp, label: "Liked videos", to: "/liked" as const },
     { icon: Music2, label: "Music", to: "/music" as const },
-    { icon: Gamepad2, label: "Gaming", to: "/" as const },
     { icon: Newspaper, label: "News", to: "/" as const },
-    { icon: Trophy, label: "Sports", to: "/" as const },
-    { icon: Lightbulb, label: "Learning", to: "/" as const },
-    { icon: Clapperboard, label: "Movies", to: "/" as const },
+
   ];
   return (
     <>
