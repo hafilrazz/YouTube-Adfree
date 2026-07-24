@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -11,23 +11,15 @@ import type { Video } from "@/lib/faketube-data";
 
 
 export const Route = createFileRoute("/watch/$id")({
-  loader: async ({ params }) => {
-    const res = await getYouTubeVideo({ data: { id: params.id } });
-    if (!res.video) throw notFound();
-    return res as { video: NonNullable<typeof res.video>; related: typeof res.related };
-  },
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [
-          { title: `${loaderData.video.title} — Premium` },
-          { name: "description", content: loaderData.video.description.slice(0, 160) },
-          { property: "og:title", content: loaderData.video.title },
-          { property: "og:description", content: loaderData.video.description.slice(0, 160) },
-          { property: "og:image", content: loaderData.video.thumbnail },
-          { name: "twitter:card", content: "summary_large_image" },
-          { name: "twitter:image", content: loaderData.video.thumbnail },
-        ]
-      : [{ title: "Not found — Premium" }, { name: "robots", content: "noindex" }],
+  // No loader: navigation is instant and the player mounts immediately from the id.
+  // Metadata + related are streamed in via useQuery inside the component.
+  head: ({ params }) => ({
+    meta: [
+      { title: "Watching — Premium" },
+      { property: "og:image", content: `https://i.ytimg.com/vi/${params.id}/hqdefault.jpg` },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: `https://i.ytimg.com/vi/${params.id}/hqdefault.jpg` },
+    ],
   }),
   component: Watch,
   errorComponent: ({ error }) => (
@@ -39,15 +31,8 @@ export const Route = createFileRoute("/watch/$id")({
       </div>
     </FakeTubeLayout>
   ),
-  notFoundComponent: () => (
-    <FakeTubeLayout>
-      <div className="text-center py-20">
-        <h1 className="text-2xl font-bold">Video not found</h1>
-        <Link to="/" className="text-blue-600 mt-4 inline-block">Back home</Link>
-      </div>
-    </FakeTubeLayout>
-  ),
 });
+
 
 let ytApiPromise: Promise<any> | null = null;
 function loadYouTubeApi(): Promise<any> {
@@ -196,7 +181,26 @@ function YouTubePlayer({ id, title }: { id: string; title: string }) {
 }
 
 function Watch() {
-  const { video, related } = Route.useLoaderData();
+  const { id } = Route.useParams();
+  const videoFn = useServerFn(getYouTubeVideo);
+  const { data } = useQuery({
+    queryKey: ["yt-watch", id],
+    queryFn: () => videoFn({ data: { id } }),
+    staleTime: 10 * 60_000,
+  });
+  const video = data?.video ?? {
+    id,
+    title: "",
+    channel: "",
+    channelAvatar: `https://i.ytimg.com/vi/${id}/default.jpg`,
+    thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    views: "",
+    posted: "",
+    duration: "",
+    description: "",
+  } as Video;
+  const related: Video[] = data?.related ?? [];
+
   const [subscribed, setSubscribed] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const likes = useLikes();
@@ -204,11 +208,13 @@ function Watch() {
   const musicVids = useMusicVideos();
   const { record } = useRecent();
 
-  useEffect(() => { record(video.id); }, [video.id, record]);
+  useEffect(() => { record(id); }, [id, record]);
 
-  const liked = likes.isLiked(video.id);
-  const saved = playlist.isSaved(video.id);
-  const inMusic = musicVids.has(video.id);
+  const liked = likes.isLiked(id);
+  const saved = playlist.isSaved(id);
+  const inMusic = musicVids.has(id);
+
+
 
 
   return (
