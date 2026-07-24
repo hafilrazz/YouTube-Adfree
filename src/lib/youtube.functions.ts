@@ -730,9 +730,23 @@ export const getVideosByIds = createServerFn({ method: "GET" })
     if (!data.ids.length) return [];
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=3600, stale-while-revalidate=86400");
 
+    // Synthetic fallback so recent/music/etc. never render empty when the
+    // public mirrors are down. Uses YouTube's public thumbnail CDN.
+    const synthetic = (id: string): Video => ({
+      id,
+      title: "YouTube video",
+      channel: "",
+      channelAvatar: avatar(id),
+      views: "—",
+      posted: "",
+      duration: "",
+      thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+      description: "",
+    });
+
     // Fan out to Piped /streams/{id} in parallel; fall back per-id to Invidious.
     const results = await Promise.allSettled(
-      data.ids.map(async (id): Promise<Video | null> => {
+      data.ids.map(async (id): Promise<Video> => {
         try {
           const s = await piped<{
             title?: string;
@@ -744,7 +758,9 @@ export const getVideosByIds = createServerFn({ method: "GET" })
             uploadDate?: string;
             livestream?: boolean;
             description?: string;
+            error?: string;
           }>(`/streams/${encodeURIComponent(id)}`);
+          if (s?.error || !s?.title) throw new Error(s?.error || "piped-empty");
           return {
             id,
             title: s.title ?? "",
@@ -769,6 +785,7 @@ export const getVideosByIds = createServerFn({ method: "GET" })
               liveNow?: boolean;
               description?: string;
             }>(`/api/v1/videos/${encodeURIComponent(id)}`);
+            if (!s?.title) throw new Error("inv-empty");
             return {
               id,
               title: s.title ?? "",
@@ -784,17 +801,43 @@ export const getVideosByIds = createServerFn({ method: "GET" })
               description: stripHtml(s.description ?? ""),
             };
           } catch {
-            return null;
+            return synthetic(id);
           }
         }
       }),
     );
 
+    // Final tier: batch call YouTube Data API for any ids we only got a
+    // synthetic placeholder for. Cheap: one request for up to 50 ids.
     const map = new Map<string, Video>();
-    for (const r of results) {
-      if (r.status === "fulfilled" && r.value) map.set(r.value.id, r.value);
+    const needsUpgrade: string[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      const id = data.ids[i];
+      if (r.status === "fulfilled") {
+        map.set(id, r.value);
+        if (r.value.title === "YouTube video") needsUpgrade.push(id);
+      } else {
+        map.set(id, synthetic(id));
+        needsUpgrade.push(id);
+      }
     }
-    return data.ids.map((id) => map.get(id)).filter((x): x is Video => Boolean(x));
+
+    if (needsUpgrade.length && ytKey()) {
+      try {
+        const j = await ytFetch<{ items?: YTVideoItem[] }>(
+          `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(needsUpgrade.join(","))}`,
+        );
+        for (const it of j.items ?? []) {
+          const v = ytVideoToVideo(it);
+          if (v) map.set(v.id, v);
+        }
+      } catch (e) {
+        console.warn("YT API videos lookup failed:", (e as Error).message);
+      }
+    }
+
+    return data.ids.map((id) => map.get(id)!).filter(Boolean);
   });
 
 // ================== Shorts ==================
