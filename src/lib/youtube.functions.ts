@@ -893,7 +893,15 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
       console.warn("Invidious /videos failed:", (e as Error).message);
     }
 
-    // Tertiary: YouTube Data API
+    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
+    try {
+      const r = await innertubeWatch(data.id);
+      if (r.video || r.related.length) return r;
+    } catch (e) {
+      console.warn("InnerTube watch failed:", (e as Error).message);
+    }
+
+    // Quaternary: YouTube Data API
     try {
       const d = await ytFetch<{ items?: YTVideoItem[] }>(
         `/videos?part=snippet,contentDetails,statistics,liveStreamingDetails&id=${encodeURIComponent(data.id)}`,
