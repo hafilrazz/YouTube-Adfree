@@ -7,6 +7,7 @@ import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getYouTubeVideo, getComments } from "@/lib/youtube.functions";
 import { useLikes, usePlaylist, useRecent, getProgress, saveProgress } from "@/lib/user-data";
 import { useMusicVideos } from "@/lib/music-videos";
+import { useSubscriptions } from "@/lib/subscriptions";
 import type { Video } from "@/lib/faketube-data";
 
 
