@@ -229,6 +229,7 @@ function invToVideo(it: InvVideoItem): Video | null {
     title: it.title ?? "",
     channel: it.author ?? "",
     channelAvatar: invAvatar(it.authorThumbnails, it.author ?? id),
+    channelId: it.authorId ?? "",
     views:
       typeof it.viewCount === "number" && it.viewCount >= 0
         ? formatViews(String(it.viewCount))
