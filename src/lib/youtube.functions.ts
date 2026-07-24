@@ -514,6 +514,8 @@ function ytRendererToVideo(r: YtVideoRenderer): Video | null {
   const channel = runsToText(r.longBylineText as YtRuns | undefined) || (r.shortBylineText?.runs?.[0]?.text ?? "");
   const chAvatar =
     r.channelThumbnailSupportedRenderers?.channelThumbnailWithLinkRenderer?.thumbnail?.thumbnails?.[0]?.url;
+  const chId = r.longBylineText?.runs?.find((x) => x.navigationEndpoint?.browseEndpoint?.browseId)
+    ?.navigationEndpoint?.browseEndpoint?.browseId ?? "";
   const thumbs = r.thumbnail?.thumbnails ?? [];
   const thumb = thumbs.length ? thumbs[thumbs.length - 1].url : `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
   const viewsRaw = runsToText(r.viewCountText) || runsToText(r.shortViewCountText);
@@ -523,6 +525,7 @@ function ytRendererToVideo(r: YtVideoRenderer): Video | null {
     title: runsToText(r.title),
     channel,
     channelAvatar: chAvatar || avatar(channel || id),
+    channelId: chId,
     views: viewsRaw ? parseViews(viewsRaw.replace(/\s*views?/i, "")) : "—",
     posted: runsToText(r.publishedTimeText),
     duration: duration || "",
