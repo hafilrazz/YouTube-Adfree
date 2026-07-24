@@ -78,6 +78,11 @@ function loadYouTubeApi(): Promise<YTNS> {
   return ytApiPromise;
 }
 
+// 1-second silent WAV, looped, keeps the page's audio focus alive so mobile
+// browsers don't suspend the hidden YouTube iframe when the screen locks.
+const SILENT_WAV =
+  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -89,6 +94,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const pendingRef = useRef<string | null>(null);
+  const wantsPlayRef = useRef(false); // user intent — separate from actual player state
+  const silentRef = useRef<HTMLAudioElement | null>(null);
 
   const current = queue[index] ?? null;
 
@@ -114,7 +121,16 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
           onStateChange: (e) => {
             const S = window.YT!.PlayerState;
             if (e.data === S.PLAYING) setIsPlaying(true);
-            else if (e.data === S.PAUSED) setIsPlaying(false);
+            else if (e.data === S.PAUSED) {
+              setIsPlaying(false);
+              // Mobile browsers auto-pause iframes when the tab/screen backgrounds.
+              // If the user still wants playback, resume immediately.
+              if (wantsPlayRef.current) {
+                setTimeout(() => {
+                  try { playerRef.current?.playVideo(); } catch { /* ignore */ }
+                }, 50);
+              }
+            }
             else if (e.data === S.ENDED) nextRef.current?.();
           },
         },
@@ -122,6 +138,38 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     });
     return () => { cancelled = true; };
   }, []);
+
+  // Keep audio focus alive across screen locks with a looping silent WAV.
+  useEffect(() => {
+    const a = silentRef.current;
+    if (!a) return;
+    a.loop = true;
+    a.volume = 0;
+    if (isPlaying) {
+      a.play().catch(() => { /* ignore autoplay rejection */ });
+    } else {
+      a.pause();
+    }
+  }, [isPlaying]);
+
+  // When the tab is hidden (screen lock), the YT iframe often self-pauses.
+  // Nudge it back to playing if that's what the user asked for.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden && wantsPlayRef.current) {
+        // Retry a few times — some browsers take a moment to allow it.
+        let tries = 0;
+        const iv = window.setInterval(() => {
+          tries += 1;
+          try { playerRef.current?.playVideo(); } catch { /* ignore */ }
+          if (tries >= 5) window.clearInterval(iv);
+        }, 300);
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
 
   // Poll progress
   useEffect(() => {
