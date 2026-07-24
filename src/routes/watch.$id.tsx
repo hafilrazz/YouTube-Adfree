@@ -181,7 +181,26 @@ function YouTubePlayer({ id, title }: { id: string; title: string }) {
 }
 
 function Watch() {
-  const { video, related } = Route.useLoaderData();
+  const { id } = Route.useParams();
+  const videoFn = useServerFn(getYouTubeVideo);
+  const { data } = useQuery({
+    queryKey: ["yt-watch", id],
+    queryFn: () => videoFn({ data: { id } }),
+    staleTime: 10 * 60_000,
+  });
+  const video = data?.video ?? {
+    id,
+    title: "",
+    channel: "",
+    channelAvatar: `https://i.ytimg.com/vi/${id}/default.jpg`,
+    thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    views: "",
+    posted: "",
+    duration: "",
+    description: "",
+  } as Video;
+  const related: Video[] = data?.related ?? [];
+
   const [subscribed, setSubscribed] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const likes = useLikes();
@@ -189,11 +208,13 @@ function Watch() {
   const musicVids = useMusicVideos();
   const { record } = useRecent();
 
-  useEffect(() => { record(video.id); }, [video.id, record]);
+  useEffect(() => { record(id); }, [id, record]);
 
-  const liked = likes.isLiked(video.id);
-  const saved = playlist.isSaved(video.id);
-  const inMusic = musicVids.has(video.id);
+  const liked = likes.isLiked(id);
+  const saved = playlist.isSaved(id);
+  const inMusic = musicVids.has(id);
+
+
 
 
   return (
