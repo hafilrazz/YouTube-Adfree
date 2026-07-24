@@ -56,7 +56,57 @@ function loadYouTubeApi(): Promise<any> {
 function YouTubePlayer({ id, title }: { id: string; title: string }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const placeholderRef = useRef<HTMLDivElement | null>(null);
+  const pipWinRef = useRef<Window | null>(null);
   const [isFs, setIsFs] = useState(false);
+  const [isPip, setIsPip] = useState(false);
+  const [pipSupported, setPipSupported] = useState(false);
+
+  useEffect(() => {
+    setPipSupported(typeof window !== "undefined" && "documentPictureInPicture" in window);
+  }, []);
+
+  const togglePip = async () => {
+    const w = window as any;
+    const wrap = wrapRef.current;
+    if (!wrap || !w.documentPictureInPicture) return;
+    if (pipWinRef.current && !pipWinRef.current.closed) {
+      pipWinRef.current.close();
+      return;
+    }
+    try {
+      const rect = wrap.getBoundingClientRect();
+      const pipWin: Window = await w.documentPictureInPicture.requestWindow({
+        width: Math.round(rect.width) || 480,
+        height: Math.round(rect.height) || 270,
+      });
+      // Copy styles so the iframe renders correctly in the PiP window.
+      document.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => {
+        pipWin.document.head.appendChild(node.cloneNode(true));
+      });
+      pipWin.document.body.style.margin = "0";
+      pipWin.document.body.style.background = "#000";
+      // Leave a placeholder so we can restore the node when PiP closes.
+      const placeholder = document.createElement("div");
+      placeholder.style.cssText = "position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;";
+      placeholder.textContent = "";
+      placeholderRef.current = placeholder;
+      wrap.parentNode?.insertBefore(placeholder, wrap);
+      pipWin.document.body.appendChild(wrap);
+      pipWinRef.current = pipWin;
+      setIsPip(true);
+      pipWin.addEventListener("pagehide", () => {
+        const ph = placeholderRef.current;
+        if (ph && wrap) ph.parentNode?.replaceChild(wrap, ph);
+        placeholderRef.current = null;
+        pipWinRef.current = null;
+        setIsPip(false);
+      });
+    } catch {
+      // ignore
+    }
+  };
+
   
 
   useEffect(() => {
