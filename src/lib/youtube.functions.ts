@@ -880,6 +880,7 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
         descriptionHtml?: string;
         publishedText?: string;
         author?: string;
+        authorId?: string;
         authorThumbnails?: { url: string; width: number }[];
         lengthSeconds?: number;
         viewCount?: number;
