@@ -107,6 +107,20 @@ function YouTubePlayer({ id, title }: { id: string; title: string }) {
     }
   };
 
+  // Auto-enter PiP when the tab/app is hidden (user hit Home or switched apps).
+  useEffect(() => {
+    if (!pipSupported) return;
+    const onVis = () => {
+      if (document.visibilityState === "hidden" && !pipWinRef.current) {
+        togglePip().catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [pipSupported]);
+
+
+
   
 
   useEffect(() => {
