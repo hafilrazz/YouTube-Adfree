@@ -113,6 +113,7 @@ function pipedToVideo(it: PipedItem): Video | null {
     title: it.title ?? "",
     channel: it.uploaderName ?? "",
     channelAvatar: it.uploaderAvatar || avatar(it.uploaderName ?? id),
+    channelId: channelIdFromUrl(it.uploaderUrl),
     views: typeof it.views === "number" && it.views >= 0 ? formatViews(String(it.views)) : "—",
     posted,
     duration: formatSeconds(it.duration ?? 0),
