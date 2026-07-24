@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Menu, Search, Mic, Video, Bell, Home, Music2, Gamepad2, Newspaper, Trophy, Lightbulb, Clapperboard, History, ThumbsUp, Clock, ListVideo, Loader2, CheckCircle2, Radio, X } from "lucide-react";
+import { Menu, Search, Mic, Video, Bell, Home, Music2, Newspaper, History, ThumbsUp, Clock, ListVideo, Loader2, CheckCircle2, Radio, X } from "lucide-react";
 import { CATEGORIES, type Video as VideoT } from "@/lib/faketube-data";
 import { searchYouTube, suggestSearch } from "@/lib/youtube.functions";
 import { ProfileMenu } from "@/components/faketube/ProfileMenu";
@@ -278,11 +278,8 @@ function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpe
     { icon: Clock, label: "Watch later", to: "/playlist" as const },
     { icon: ThumbsUp, label: "Liked videos", to: "/liked" as const },
     { icon: Music2, label: "Music", to: "/music" as const },
-    { icon: Gamepad2, label: "Gaming", to: "/" as const },
     { icon: Newspaper, label: "News", to: "/" as const },
-    { icon: Trophy, label: "Sports", to: "/" as const },
-    { icon: Lightbulb, label: "Learning", to: "/" as const },
-    { icon: Clapperboard, label: "Movies", to: "/" as const },
+
   ];
   return (
     <>
