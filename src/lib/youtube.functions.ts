@@ -815,7 +815,15 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
     if (!data.id) return { video: null, related: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=3600, stale-while-revalidate=86400");
 
-    // Primary: Piped /streams/{id}
+    // Primary: InnerTube (fastest — YouTube's own guest API, no key, no quota)
+    try {
+      const r = await innertubeWatch(data.id);
+      if (r.video || r.related.length) return r;
+    } catch (e) {
+      console.warn("InnerTube watch failed:", (e as Error).message);
+    }
+
+    // Secondary: Piped /streams/{id}
     try {
       const s = await piped<{
         title?: string;
@@ -854,7 +862,7 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
       console.warn("Piped /streams failed:", (e as Error).message);
     }
 
-    // Secondary: Invidious /api/v1/videos/{id}
+    // Tertiary: Invidious /api/v1/videos/{id}
     try {
       const s = await invidious<{
         title?: string;
@@ -895,13 +903,6 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
       console.warn("Invidious /videos failed:", (e as Error).message);
     }
 
-    // Tertiary: InnerTube (YouTube's own guest API — no key, no quota)
-    try {
-      const r = await innertubeWatch(data.id);
-      if (r.video || r.related.length) return r;
-    } catch (e) {
-      console.warn("InnerTube watch failed:", (e as Error).message);
-    }
 
     // Quaternary: YouTube Data API
     try {
