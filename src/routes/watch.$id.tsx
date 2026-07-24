@@ -203,6 +203,7 @@ function Watch() {
 
   const [subscribed, setSubscribed] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
   const likes = useLikes();
   const playlist = usePlaylist();
   const musicVids = useMusicVideos();
@@ -213,6 +214,14 @@ function Watch() {
   const liked = likes.isLiked(id);
   const saved = playlist.isSaved(id);
   const inMusic = musicVids.has(id);
+  const youtubeUrl = `https://www.youtube.com/watch?v=${id}`;
+  const encodedYoutubeUrl = encodeURIComponent(youtubeUrl);
+  const downloaderLinks = [
+    { label: "SaveFrom", href: `https://en.savefrom.net/1-youtube-video-downloader-4/?url=${encodedYoutubeUrl}` },
+    { label: "9xbuddy", href: `https://9xbuddy.in/process?url=${encodedYoutubeUrl}` },
+    { label: "Loader.to", href: `https://loader.to/?link=${encodedYoutubeUrl}` },
+    { label: "SSYouTube", href: `https://ssyoutube.com/watch?v=${id}` },
+  ];
 
 
 
@@ -278,14 +287,34 @@ function Watch() {
               <button className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2">
                 <Share2 className="h-4 w-4" /> Share
               </button>
-              <a
-                href={`https://www.y2mate.com/youtube/${id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" /> Download
-              </a>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setDownloadOpen((v) => !v)}
+                  className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2"
+                  aria-expanded={downloadOpen}
+                  aria-haspopup="menu"
+                >
+                  <Download className="h-4 w-4" /> Download
+                </button>
+                {downloadOpen && (
+                  <div className="absolute right-0 top-full z-30 mt-2 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl" role="menu">
+                    {downloaderLinks.map((link) => (
+                      <a
+                        key={link.label}
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setDownloadOpen(false)}
+                        className="block px-4 py-3 text-sm text-neutral-900 hover:bg-neutral-100"
+                        role="menuitem"
+                      >
+                        Open {link.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2">
                 <Scissors className="h-4 w-4" /> Clip
               </button>
