@@ -278,7 +278,7 @@ function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpe
     { icon: Clock, label: "Watch later", to: "/playlist" as const },
     { icon: ThumbsUp, label: "Liked videos", to: "/liked" as const },
     { icon: Music2, label: "Music", to: "/music" as const },
-    { icon: Newspaper, label: "News", to: "/" as const },
+    
 
   ];
   return (
