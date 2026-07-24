@@ -307,9 +307,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       >
         <div ref={hostRef} />
       </div>
+      {/* Silent looping audio keeps the media session alive on locked screens */}
+      <audio ref={silentRef} src={SILENT_WAV} loop playsInline aria-hidden style={{ display: "none" }} />
     </MusicCtx.Provider>
   );
 }
+
 
 export function useMusic() {
   const ctx = useContext(MusicCtx);
