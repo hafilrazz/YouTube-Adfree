@@ -70,12 +70,15 @@ function loadYouTubeApi(): Promise<any> {
 
 function YouTubePlayer({ id, title }: { id: string; title: string }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [isFs, setIsFs] = useState(false);
 
   useEffect(() => {
-    const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
-    if (!isMobile) return;
     const onFsChange = async () => {
       const fs = document.fullscreenElement || (document as any).webkitFullscreenElement;
+      setIsFs(!!fs);
+      const isMobile = window.matchMedia("(max-width: 767px)").matches;
+      if (!isMobile) return;
       const orientation = (screen as any).orientation;
       try {
         if (fs && orientation?.lock) {
@@ -95,6 +98,26 @@ function YouTubePlayer({ id, title }: { id: string; title: string }) {
       try { (screen as any).orientation?.unlock?.(); } catch {}
     };
   }, []);
+
+  const toggleFullscreen = async () => {
+    const el = wrapRef.current as any;
+    if (!el) return;
+    const doc = document as any;
+    const fs = doc.fullscreenElement || doc.webkitFullscreenElement;
+    try {
+      if (!fs) {
+        const iframe = el.querySelector("iframe") as any;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (iframe?.webkitEnterFullscreen) iframe.webkitEnterFullscreen(); // iOS Safari
+        else if (iframe?.requestFullscreen) await iframe.requestFullscreen();
+      } else {
+        if (doc.exitFullscreen) await doc.exitFullscreen();
+        else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+      }
+    } catch {}
+  };
+
   const playerRef = useRef<any>(null);
 
   useEffect(() => {
@@ -106,7 +129,7 @@ function YouTubePlayer({ id, title }: { id: string; title: string }) {
       if (cancelled || !mountRef.current) return;
       playerRef.current = new YT.Player(mountRef.current, {
         videoId: id,
-        playerVars: { autoplay: 1, rel: 0, start },
+        playerVars: { autoplay: 1, rel: 0, start, playsinline: 1, fs: 1 },
         events: {
           onReady: (e: any) => {
             interval = setInterval(() => {
@@ -147,8 +170,19 @@ function YouTubePlayer({ id, title }: { id: string; title: string }) {
   }, [id]);
 
   return (
-    <div className="aspect-video rounded-xl overflow-hidden bg-black">
+    <div
+      ref={wrapRef}
+      className={`relative rounded-xl overflow-hidden bg-black ${isFs ? "fixed inset-0 z-[2147483647] rounded-none" : "aspect-video"}`}
+    >
       <div ref={mountRef} className="h-full w-full" title={title} />
+      <button
+        type="button"
+        onClick={toggleFullscreen}
+        className="absolute bottom-2 right-2 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 md:hidden"
+        aria-label={isFs ? "Exit fullscreen" : "Enter fullscreen"}
+      >
+        {isFs ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+      </button>
     </div>
   );
 }
