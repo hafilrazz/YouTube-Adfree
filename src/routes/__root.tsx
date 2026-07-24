@@ -140,9 +140,12 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <MusicPlayerProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <MiniPlayer />
+        <VideoPlayerProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+          <GlobalVideoPlayer />
+          <MiniPlayer />
+        </VideoPlayerProvider>
       </MusicPlayerProvider>
     </QueryClientProvider>
   );
