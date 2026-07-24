@@ -143,7 +143,7 @@ function cacheSet(key: string, value: unknown, ttlMs: number): void {
   }
 }
 
-async function raceFetch(bases: string[], path: string, timeoutMs = 6000): Promise<unknown> {
+async function raceFetch(bases: string[], path: string, timeoutMs = 3500): Promise<unknown> {
   const attempts = bases.map(async (base) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
