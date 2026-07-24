@@ -853,6 +853,7 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
         title: s.title ?? "",
         channel: s.uploader ?? "",
         channelAvatar: s.uploaderAvatar || avatar(s.uploader ?? data.id),
+        channelId: channelIdFromUrl(s.uploaderUrl),
         views: typeof s.views === "number" && s.views >= 0 ? formatViews(String(s.views)) : "—",
         posted: s.uploadDate ?? "",
         duration: s.livestream ? "LIVE" : formatSeconds(s.duration ?? 0),
