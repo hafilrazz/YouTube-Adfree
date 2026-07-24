@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SubscriptionsRouteImport } from './routes/subscriptions'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as PlaylistRouteImport } from './routes/playlist'
 import { Route as MusicRouteImport } from './routes/music'
@@ -19,6 +20,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as MusicPlaylistRouteImport } from './routes/music.playlist'
 
+const SubscriptionsRoute = SubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
   '/search': typeof SearchRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
 }
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
   '/search': typeof SearchRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
 }
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
   '/search': typeof SearchRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
 }
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/music'
     | '/playlist'
     | '/search'
+    | '/subscriptions'
     | '/music/playlist'
     | '/watch/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/music'
     | '/playlist'
     | '/search'
+    | '/subscriptions'
     | '/music/playlist'
     | '/watch/$id'
   id:
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/music'
     | '/playlist'
     | '/search'
+    | '/subscriptions'
     | '/music/playlist'
     | '/watch/$id'
   fileRoutesById: FileRoutesById
@@ -143,11 +155,19 @@ export interface RootRouteChildren {
   MusicRoute: typeof MusicRouteWithChildren
   PlaylistRoute: typeof PlaylistRoute
   SearchRoute: typeof SearchRoute
+  SubscriptionsRoute: typeof SubscriptionsRoute
   WatchIdRoute: typeof WatchIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/subscriptions': {
+      id: '/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/subscriptions'
+      preLoaderRoute: typeof SubscriptionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/search': {
       id: '/search'
       path: '/search'
@@ -232,6 +252,7 @@ const rootRouteChildren: RootRouteChildren = {
   MusicRoute: MusicRouteWithChildren,
   PlaylistRoute: PlaylistRoute,
   SearchRoute: SearchRoute,
+  SubscriptionsRoute: SubscriptionsRoute,
   WatchIdRoute: WatchIdRoute,
 }
 export const routeTree = rootRouteImport

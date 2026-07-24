@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Menu, Search, Mic, Video, Bell, Home, Music2, History, ThumbsUp, Clock, ListVideo, Loader2, CheckCircle2, Radio, X } from "lucide-react";
+import { Menu, Search, Mic, Video, Bell, Home, Music2, History, ThumbsUp, Clock, ListVideo, Loader2, CheckCircle2, Radio, X, Users } from "lucide-react";
 
 import { CATEGORIES, type Video as VideoT } from "@/lib/faketube-data";
 import { searchYouTube, suggestSearch } from "@/lib/youtube.functions";
@@ -268,6 +268,8 @@ function SearchBox() {
 function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpen: boolean; onCloseMobile: () => void }) {
   const items = [
     { icon: Home, label: "Home", to: "/" as const },
+    { icon: Users, label: "Subscriptions", to: "/subscriptions" as const },
+
 
 
 

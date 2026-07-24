@@ -113,6 +113,7 @@ function pipedToVideo(it: PipedItem): Video | null {
     title: it.title ?? "",
     channel: it.uploaderName ?? "",
     channelAvatar: it.uploaderAvatar || avatar(it.uploaderName ?? id),
+    channelId: channelIdFromUrl(it.uploaderUrl),
     views: typeof it.views === "number" && it.views >= 0 ? formatViews(String(it.views)) : "—",
     posted,
     duration: formatSeconds(it.duration ?? 0),
@@ -228,6 +229,7 @@ function invToVideo(it: InvVideoItem): Video | null {
     title: it.title ?? "",
     channel: it.author ?? "",
     channelAvatar: invAvatar(it.authorThumbnails, it.author ?? id),
+    channelId: it.authorId ?? "",
     views:
       typeof it.viewCount === "number" && it.viewCount >= 0
         ? formatViews(String(it.viewCount))
@@ -308,6 +310,7 @@ function ytSearchToVideo(it: YTSearchItem): Video | null {
     title: sn.title ?? "",
     channel: sn.channelTitle ?? "",
     channelAvatar: avatar(sn.channelId ?? sn.channelTitle ?? id),
+    channelId: sn.channelId ?? "",
     views: "—",
     posted: sn.publishedAt ? timeAgo(sn.publishedAt) : "",
     duration: isLive ? "LIVE" : "",
@@ -327,6 +330,7 @@ function ytVideoToVideo(it: YTVideoItem): Video | null {
     title: sn.title ?? "",
     channel: sn.channelTitle ?? "",
     channelAvatar: avatar(sn.channelId ?? sn.channelTitle ?? id),
+    channelId: sn.channelId ?? "",
     views: it.statistics?.viewCount ? formatViews(it.statistics.viewCount) : "—",
     posted: sn.publishedAt ? timeAgo(sn.publishedAt) : "",
     duration: isLive ? "LIVE" : formatSeconds(dur),
@@ -426,6 +430,7 @@ interface ItNextResponse {
     lengthSeconds?: string;
     viewCount?: string;
     author?: string;
+    channelId?: string;
     thumbnail?: { thumbnails?: YtThumb[] };
   };
 }
@@ -442,6 +447,7 @@ async function innertubeWatch(id: string): Promise<{ video: Video | null; relate
       title: vd.title ?? "",
       channel: vd.author ?? "",
       channelAvatar: avatar(vd.author ?? vd.videoId),
+      channelId: vd.channelId ?? "",
       views: vd.viewCount ? formatViews(vd.viewCount) : "—",
       posted: "",
       duration: vd.lengthSeconds ? formatSeconds(Number(vd.lengthSeconds)) : "",
@@ -510,6 +516,8 @@ function ytRendererToVideo(r: YtVideoRenderer): Video | null {
   const channel = runsToText(r.longBylineText as YtRuns | undefined) || (r.shortBylineText?.runs?.[0]?.text ?? "");
   const chAvatar =
     r.channelThumbnailSupportedRenderers?.channelThumbnailWithLinkRenderer?.thumbnail?.thumbnails?.[0]?.url;
+  const chId = r.longBylineText?.runs?.find((x) => x.navigationEndpoint?.browseEndpoint?.browseId)
+    ?.navigationEndpoint?.browseEndpoint?.browseId ?? "";
   const thumbs = r.thumbnail?.thumbnails ?? [];
   const thumb = thumbs.length ? thumbs[thumbs.length - 1].url : `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
   const viewsRaw = runsToText(r.viewCountText) || runsToText(r.shortViewCountText);
@@ -519,6 +527,7 @@ function ytRendererToVideo(r: YtVideoRenderer): Video | null {
     title: runsToText(r.title),
     channel,
     channelAvatar: chAvatar || avatar(channel || id),
+    channelId: chId,
     views: viewsRaw ? parseViews(viewsRaw.replace(/\s*views?/i, "")) : "—",
     posted: runsToText(r.publishedTimeText),
     duration: duration || "",
@@ -844,6 +853,7 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
         title: s.title ?? "",
         channel: s.uploader ?? "",
         channelAvatar: s.uploaderAvatar || avatar(s.uploader ?? data.id),
+        channelId: channelIdFromUrl(s.uploaderUrl),
         views: typeof s.views === "number" && s.views >= 0 ? formatViews(String(s.views)) : "—",
         posted: s.uploadDate ?? "",
         duration: s.livestream ? "LIVE" : formatSeconds(s.duration ?? 0),
@@ -870,6 +880,7 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
         descriptionHtml?: string;
         publishedText?: string;
         author?: string;
+        authorId?: string;
         authorThumbnails?: { url: string; width: number }[];
         lengthSeconds?: number;
         viewCount?: number;
@@ -883,6 +894,7 @@ export const getYouTubeVideo = createServerFn({ method: "GET" })
         title: s.title ?? "",
         channel: s.author ?? "",
         channelAvatar: invAvatar(s.authorThumbnails, s.author ?? data.id),
+        channelId: s.authorId ?? "",
         views:
           typeof s.viewCount === "number" && s.viewCount >= 0
             ? formatViews(String(s.viewCount))
@@ -1368,4 +1380,74 @@ export const getLive = createServerFn({ method: "GET" })
       return [];
     }
 
+  });
+
+// ================== Subscriptions feed ==================
+
+export const getSubscriptionsFeed = createServerFn({ method: "GET" })
+  .inputValidator((d: { channelIds: string[] }) => ({
+    channelIds: (Array.isArray(d?.channelIds) ? d.channelIds : [])
+      .slice(0, 30)
+      .map((x) => String(x))
+      .filter((x) => /^[\w-]{10,}$/.test(x)),
+  }))
+  .handler(async ({ data }): Promise<Video[]> => {
+    if (!data.channelIds.length) return [];
+    setResponseHeader("cache-control", "private, max-age=300, stale-while-revalidate=1800");
+
+    const results = await Promise.allSettled(
+      data.channelIds.map(async (cid) => {
+        // Piped channel endpoint returns relatedStreams (recent uploads)
+        try {
+          const r = await piped<{ relatedStreams?: PipedItem[] }>(
+            `/channel/${encodeURIComponent(cid)}`,
+          );
+          return (r.relatedStreams ?? [])
+            .map(pipedToVideo)
+            .filter((v): v is Video => Boolean(v))
+            .map((v) => ({ ...v, channelId: v.channelId || cid }));
+        } catch {}
+        try {
+          const r = await invidious<{ latestVideos?: InvVideoItem[] }>(
+            `/api/v1/channels/${encodeURIComponent(cid)}`,
+          );
+          return (r.latestVideos ?? [])
+            .map(invToVideo)
+            .filter((v): v is Video => Boolean(v))
+            .map((v) => ({ ...v, channelId: v.channelId || cid }));
+        } catch {}
+        return [] as Video[];
+      }),
+    );
+
+    const collected: Video[] = [];
+    for (const r of results) {
+      if (r.status === "fulfilled") collected.push(...r.value);
+    }
+
+    // Sort roughly by posted recency using the human "posted" string, fallback to shuffle
+    // We just dedupe and interleave — no reliable timestamp — then cap.
+    const seen = new Set<string>();
+    const unique: Video[] = [];
+    for (const v of collected) {
+      if (seen.has(v.id)) continue;
+      seen.add(v.id);
+      unique.push(v);
+    }
+    // Interleave by channel so no single channel dominates the top
+    const byChannel = new Map<string, Video[]>();
+    for (const v of unique) {
+      const k = v.channelId || "_";
+      if (!byChannel.has(k)) byChannel.set(k, []);
+      byChannel.get(k)!.push(v);
+    }
+    const buckets = Array.from(byChannel.values());
+    const interleaved: Video[] = [];
+    let i = 0;
+    while (interleaved.length < 60 && buckets.some((b) => b.length)) {
+      const b = buckets[i % buckets.length];
+      if (b.length) interleaved.push(b.shift()!);
+      i++;
+    }
+    return interleaved;
   });
