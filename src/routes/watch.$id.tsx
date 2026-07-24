@@ -279,7 +279,7 @@ function Watch() {
                 <Share2 className="h-4 w-4" /> Share
               </button>
               <a
-                href={`https://cobalt.tools/?u=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`}
+                href={`https://www.y2mate.com/youtube/${id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2"
