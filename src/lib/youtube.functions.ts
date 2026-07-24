@@ -430,6 +430,7 @@ interface ItNextResponse {
     lengthSeconds?: string;
     viewCount?: string;
     author?: string;
+    channelId?: string;
     thumbnail?: { thumbnails?: YtThumb[] };
   };
 }
@@ -446,6 +447,7 @@ async function innertubeWatch(id: string): Promise<{ video: Video | null; relate
       title: vd.title ?? "",
       channel: vd.author ?? "",
       channelAvatar: avatar(vd.author ?? vd.videoId),
+      channelId: vd.channelId ?? "",
       views: vd.viewCount ? formatViews(vd.viewCount) : "—",
       posted: "",
       duration: vd.lengthSeconds ? formatSeconds(Number(vd.lengthSeconds)) : "",
