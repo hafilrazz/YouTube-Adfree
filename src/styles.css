@@ -158,7 +158,7 @@
 .dark .text-neutral-600 { color: #aaa !important; }
 .dark .text-neutral-500 { color: #909090 !important; }
 .dark .text-neutral-400 { color: #808080 !important; }
-.dark .text-white { color: #0f0f0f !important; }
+.dark .bg-neutral-900.text-white { color: #0f0f0f !important; }
 .dark .border-neutral-200 { border-color: #303030 !important; }
 .dark .border-neutral-300 { border-color: #3f3f3f !important; }
 .dark .hover\:text-neutral-900:hover { color: #f1f1f1 !important; }
