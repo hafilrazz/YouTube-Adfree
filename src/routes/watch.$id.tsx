@@ -2,7 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck, Music2, Check, Loader2, Heart, Pin, BadgeCheck, Maximize2, Minimize2 } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Share2, Download, Scissors, Bell, BookmarkPlus, BookmarkCheck, Music2, Check, Loader2, Heart, Pin, BadgeCheck, Maximize2, Minimize2, Expand, Shrink } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getYouTubeVideo, getComments } from "@/lib/youtube.functions";
 import { useLikes, usePlaylist, useRecent, getProgress, saveProgress } from "@/lib/user-data";
