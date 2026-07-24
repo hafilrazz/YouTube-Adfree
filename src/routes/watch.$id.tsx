@@ -276,7 +276,7 @@ function Watch() {
   } as Video;
   const related: Video[] = data?.related ?? [];
 
-  const [subscribed, setSubscribed] = useState(false);
+  const subscriptions = useSubscriptions();
   const [descExpanded, setDescExpanded] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const likes = useLikes();
