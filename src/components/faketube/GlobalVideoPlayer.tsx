@@ -258,8 +258,6 @@ export function GlobalVideoPlayer() {
     } catch {}
   };
 
-  if (!current) return null;
-
   const miniTotalHeight = MINI_HEIGHT + 44;
 
   // Initialize / clamp mini position
@@ -284,6 +282,8 @@ export function GlobalVideoPlayer() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [mode, miniTotalHeight]);
+
+  if (!current) return null;
 
   const onMiniPointerDown = (e: React.PointerEvent) => {
     if (mode !== "mini") return;
