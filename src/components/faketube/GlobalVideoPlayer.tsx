@@ -349,15 +349,25 @@ export function GlobalVideoPlayer() {
 
   const showControlStrip = mode === "mini" && !isFs;
 
+  const dragHandlers = mode === "mini"
+    ? {
+        onPointerDown: onMiniPointerDown,
+        onPointerMove: onMiniPointerMove,
+        onPointerUp: onMiniPointerUp,
+        onPointerCancel: onMiniPointerUp,
+      }
+    : {};
+
+  const handleMiniTap = () => {
+    if (dragState.current?.moved) return;
+    navigate({ to: "/watch/$id", params: { id: current.id } });
+  };
+
   return (
     <div
       ref={containerRef}
       style={style}
       className="bg-black overflow-hidden"
-      onPointerDown={onMiniPointerDown}
-      onPointerMove={onMiniPointerMove}
-      onPointerUp={onMiniPointerUp}
-      onPointerCancel={onMiniPointerUp}
     >
       <div
         style={{
@@ -372,6 +382,17 @@ export function GlobalVideoPlayer() {
           style={isFs ? { transform: "scale(1.34)" } : undefined}
           title={current.title}
         />
+
+        {/* Drag / tap overlay above iframe in mini mode (iframes swallow touch events) */}
+        {mode === "mini" && (
+          <div
+            {...dragHandlers}
+            onClick={handleMiniTap}
+            className="absolute inset-0 z-[5]"
+            style={{ touchAction: "none", cursor: dragState.current ? "grabbing" : "grab" }}
+            aria-label="Drag mini player"
+          />
+        )}
 
         {/* Overlay controls */}
         <div className="absolute top-2 right-2 z-10 flex gap-1">
@@ -418,7 +439,7 @@ export function GlobalVideoPlayer() {
             <>
               <button
                 type="button"
-                onClick={() => navigate({ to: "/watch/$id", params: { id: current.id } })}
+                onClick={(e) => { e.stopPropagation(); navigate({ to: "/watch/$id", params: { id: current.id } }); }}
                 className="p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
                 aria-label="Expand"
                 title="Expand"
@@ -427,7 +448,7 @@ export function GlobalVideoPlayer() {
               </button>
               <button
                 type="button"
-                onClick={() => closeVideo()}
+                onClick={(e) => { e.stopPropagation(); closeVideo(); }}
                 className="p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
                 aria-label="Close"
                 title="Close"
@@ -463,14 +484,16 @@ export function GlobalVideoPlayer() {
       </div>
 
       {showControlStrip && (
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/watch/$id", params: { id: current.id } })}
-          className="w-full text-left px-3 py-2 bg-neutral-900 text-white hover:bg-neutral-800"
+        <div
+          {...dragHandlers}
+          onClick={handleMiniTap}
+          role="button"
+          className="w-full text-left px-3 py-2 bg-neutral-900 text-white hover:bg-neutral-800 select-none"
+          style={{ touchAction: "none", cursor: dragState.current ? "grabbing" : "grab" }}
         >
           <p className="text-xs font-medium line-clamp-1">{current.title || "Playing"}</p>
           {current.channel && <p className="text-[10px] text-neutral-400 line-clamp-1">{current.channel}</p>}
-        </button>
+        </div>
       )}
     </div>
   );
