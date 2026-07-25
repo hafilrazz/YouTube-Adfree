@@ -734,14 +734,22 @@ export const searchYouTube = createServerFn({ method: "GET" })
     if (!data.q.trim()) return { items: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=1800, stale-while-revalidate=3600");
 
-    // Primary: InnerTube (fastest — one direct call to youtube.com, no key, no quota)
-    if (!data.pageToken) {
-      try {
-        const it = await innertubeSearch(data.q);
-        if (it.length) return { items: it.slice(0, data.limit) };
-      } catch (e) {
-        console.warn("InnerTube search failed:", (e as Error).message);
+    // Primary: InnerTube (fastest — one direct call to youtube.com, no key, no quota).
+    // Supports pagination via continuation tokens prefixed with "it:".
+    try {
+      const isIt = !data.pageToken || data.pageToken.startsWith("it:");
+      if (isIt) {
+        const cont = data.pageToken ? data.pageToken.slice(3) : undefined;
+        const it = await innertubeSearch(data.q, cont);
+        if (it.items.length) {
+          return {
+            items: it.items.slice(0, data.limit),
+            nextPageToken: it.nextPageToken ? `it:${it.nextPageToken}` : undefined,
+          };
+        }
       }
+    } catch (e) {
+      console.warn("InnerTube search failed:", (e as Error).message);
     }
 
     // Secondary: Piped (supports pagination)
