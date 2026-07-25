@@ -1484,3 +1484,46 @@ export const getSubscriptionsFeed = createServerFn({ method: "GET" })
     }
     return interleaved;
   });
+
+// -------- Audio stream URL (for background/lockscreen music playback) --------
+// Uses Piped /streams to obtain a direct audio URL that plays in a native
+// <audio> element — unlike the YouTube iframe, native <audio> keeps playing
+// when the mobile screen locks or the browser is backgrounded.
+export const getAudioStream = createServerFn({ method: "GET" })
+  .inputValidator((d: { id: string }) => ({ id: String(d?.id ?? "") }))
+  .handler(async ({ data }) => {
+    if (!data.id) throw new Error("Missing video id");
+    setResponseHeader("Cache-Control", "public, max-age=600, s-maxage=600");
+
+    type AudioStream = {
+      url?: string;
+      mimeType?: string;
+      codec?: string;
+      quality?: string;
+      bitrate?: number;
+      format?: string;
+    };
+    try {
+      const s = await piped<{ audioStreams?: AudioStream[]; hls?: string; livestream?: boolean }>(
+        `/streams/${encodeURIComponent(data.id)}`,
+      );
+      if (s.livestream && s.hls) {
+        return { url: s.hls, mimeType: "application/x-mpegURL" };
+      }
+      const streams = (s.audioStreams ?? []).filter((a) => a.url);
+      if (streams.length === 0) throw new Error("No audio streams");
+      // Prefer m4a/mp4 (widely supported on iOS Safari), then highest bitrate.
+      const score = (a: AudioStream) => {
+        const mime = (a.mimeType || a.format || "").toLowerCase();
+        let s = a.bitrate || 0;
+        if (mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac")) s += 1_000_000;
+        else if (mime.includes("webm") || mime.includes("opus")) s += 500_000;
+        return s;
+      };
+      streams.sort((a, b) => score(b) - score(a));
+      const best = streams[0];
+      return { url: best.url!, mimeType: best.mimeType || "audio/mp4" };
+    } catch (e) {
+      throw new Error(`Audio stream unavailable: ${(e as Error).message}`);
+    }
+  });

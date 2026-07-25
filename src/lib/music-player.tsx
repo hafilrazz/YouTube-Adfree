@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { getAudioStream } from "./youtube.functions";
 
 export type Track = {
   id: string; // YouTube video id
@@ -15,6 +16,8 @@ type Ctx = {
   progress: number;
   duration: number;
   ready: boolean;
+  loading: boolean;
+  error: string | null;
   playFromQueue: (queue: Track[], index: number) => void;
   toggle: () => void;
   next: () => void;
@@ -24,218 +27,121 @@ type Ctx = {
 
 const MusicCtx = createContext<Ctx | null>(null);
 
-// Minimal typings for the YT IFrame API
-interface YTPlayer {
-  loadVideoById: (id: string) => void;
-  playVideo: () => void;
-  pauseVideo: () => void;
-  seekTo: (s: number, allow: boolean) => void;
-  getCurrentTime: () => number;
-  getDuration: () => number;
-  setVolume: (n: number) => void;
-}
-interface YTNS {
-  Player: new (
-    el: HTMLElement | string,
-    opts: {
-      height?: string | number;
-      width?: string | number;
-      videoId?: string;
-      playerVars?: Record<string, unknown>;
-      events?: {
-        onReady?: (e: { target: YTPlayer }) => void;
-        onStateChange?: (e: { data: number; target: YTPlayer }) => void;
-      };
-    }
-  ) => YTPlayer;
-  PlayerState: { ENDED: number; PLAYING: number; PAUSED: number; BUFFERING: number; CUED: number };
-}
-declare global {
-  interface Window {
-    YT?: YTNS;
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
-
-let ytApiPromise: Promise<YTNS> | null = null;
-function loadYouTubeApi(): Promise<YTNS> {
-  if (typeof window === "undefined") return Promise.reject(new Error("SSR"));
-  if (window.YT?.Player) return Promise.resolve(window.YT);
-  if (ytApiPromise) return ytApiPromise;
-  ytApiPromise = new Promise((resolve) => {
-    const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      prev?.();
-      resolve(window.YT!);
-    };
-    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
-      const s = document.createElement("script");
-      s.src = "https://www.youtube.com/iframe_api";
-      s.async = true;
-      document.head.appendChild(s);
-    }
-  });
-  return ytApiPromise;
-}
-
-// 1-second silent WAV, looped, keeps the page's audio focus alive so mobile
-// browsers don't suspend the hidden YouTube iframe when the screen locks.
-const SILENT_WAV =
-  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const playerRef = useRef<YTPlayer | null>(null);
-  const readyRef = useRef(false);
-  const [ready, setReady] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [queue, setQueue] = useState<Track[]>([]);
   const [index, setIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const pendingRef = useRef<string | null>(null);
-  const wantsPlayRef = useRef(false); // user intent — separate from actual player state
-  const silentRef = useRef<HTMLAudioElement | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const wantsPlayRef = useRef(false);
+  const loadTokenRef = useRef(0);
 
   const current = queue[index] ?? null;
 
-  // Init hidden YT player
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    let cancelled = false;
-    loadYouTubeApi().then((YT) => {
-      if (cancelled || !hostRef.current) return;
-      playerRef.current = new YT.Player(hostRef.current, {
-        height: "1",
-        width: "1",
-        playerVars: { playsinline: 1, controls: 0, disablekb: 1, modestbranding: 1, rel: 0 },
-        events: {
-          onReady: () => {
-            readyRef.current = true;
-            setReady(true);
-            if (pendingRef.current) {
-              playerRef.current?.loadVideoById(pendingRef.current);
-              pendingRef.current = null;
-            }
-          },
-          onStateChange: (e) => {
-            const S = window.YT!.PlayerState;
-            if (e.data === S.PLAYING) setIsPlaying(true);
-            else if (e.data === S.PAUSED) {
-              setIsPlaying(false);
-              // Mobile browsers auto-pause iframes when the tab/screen backgrounds.
-              // If the user still wants playback, resume immediately.
-              if (wantsPlayRef.current) {
-                setTimeout(() => {
-                  try { playerRef.current?.playVideo(); } catch { /* ignore */ }
-                }, 50);
-              }
-            }
-            else if (e.data === S.ENDED) nextRef.current?.();
-          },
-        },
-      });
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  // Keep audio focus alive across screen locks with a looping silent WAV.
-  useEffect(() => {
-    const a = silentRef.current;
-    if (!a) return;
-    a.loop = true;
-    a.volume = 0;
-    if (isPlaying) {
-      a.play().catch(() => { /* ignore autoplay rejection */ });
-    } else {
-      a.pause();
-    }
-  }, [isPlaying]);
-
-  // When the tab is hidden (screen lock), the YT iframe often self-pauses.
-  // Nudge it back to playing if that's what the user asked for.
-  useEffect(() => {
-    const onVis = () => {
-      if (document.hidden && wantsPlayRef.current) {
-        // Retry a few times — some browsers take a moment to allow it.
-        let tries = 0;
-        const iv = window.setInterval(() => {
-          tries += 1;
-          try { playerRef.current?.playVideo(); } catch { /* ignore */ }
-          if (tries >= 5) window.clearInterval(iv);
-        }, 300);
+  // Resolve audio URL for a track and start playback
+  const loadAndPlay = useCallback(async (trackId: string) => {
+    const token = ++loadTokenRef.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const { url } = await getAudioStream({ data: { id: trackId } });
+      if (token !== loadTokenRef.current) return; // superseded
+      const a = audioRef.current;
+      if (!a) return;
+      a.src = url;
+      a.load();
+      if (wantsPlayRef.current) {
+        try { await a.play(); } catch { /* autoplay may need gesture */ }
       }
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
+    } catch (e) {
+      if (token === loadTokenRef.current) setError((e as Error).message);
+    } finally {
+      if (token === loadTokenRef.current) setLoading(false);
+    }
   }, []);
 
-
-  // Poll progress
+  // When the current track changes, load its stream
   useEffect(() => {
-    const id = window.setInterval(() => {
-      const p = playerRef.current;
-      if (!p || !readyRef.current) return;
-      try {
-        setProgress(p.getCurrentTime() || 0);
-        const d = p.getDuration() || 0;
-        setDuration(d);
-      } catch { /* ignore */ }
-    }, 500);
-    return () => window.clearInterval(id);
+    if (!current) return;
+    loadAndPlay(current.id);
+  }, [current?.id, loadAndPlay]);
+
+  // Bind audio element events
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onTime = () => setProgress(a.currentTime || 0);
+    const onDur = () => setDuration(a.duration || 0);
+    const onEnded = () => nextRef.current?.();
+    const onError = () => setError("Playback error");
+    a.addEventListener("play", onPlay);
+    a.addEventListener("pause", onPause);
+    a.addEventListener("timeupdate", onTime);
+    a.addEventListener("durationchange", onDur);
+    a.addEventListener("loadedmetadata", onDur);
+    a.addEventListener("ended", onEnded);
+    a.addEventListener("error", onError);
+    return () => {
+      a.removeEventListener("play", onPlay);
+      a.removeEventListener("pause", onPause);
+      a.removeEventListener("timeupdate", onTime);
+      a.removeEventListener("durationchange", onDur);
+      a.removeEventListener("loadedmetadata", onDur);
+      a.removeEventListener("ended", onEnded);
+      a.removeEventListener("error", onError);
+    };
   }, []);
 
   const playFromQueue = useCallback((q: Track[], i: number) => {
     setQueue(q);
     setIndex(i);
-    const vid = q[i]?.id;
-    if (!vid) return;
     wantsPlayRef.current = true;
-    silentRef.current?.play().catch(() => { /* ignore */ });
-    if (readyRef.current && playerRef.current) {
-      playerRef.current.loadVideoById(vid);
-    } else {
-      pendingRef.current = vid;
-    }
+    // loadAndPlay will fire via the current effect
   }, []);
 
   const toggle = useCallback(() => {
-    const p = playerRef.current;
-    if (!p || !current) return;
+    const a = audioRef.current;
+    if (!a || !current) return;
     if (isPlaying) {
       wantsPlayRef.current = false;
-      p.pauseVideo();
+      a.pause();
     } else {
       wantsPlayRef.current = true;
-      silentRef.current?.play().catch(() => { /* ignore */ });
-      p.playVideo();
+      if (!a.src) {
+        loadAndPlay(current.id);
+      } else {
+        a.play().catch(() => { /* ignore */ });
+      }
     }
-  }, [current, isPlaying]);
+  }, [current, isPlaying, loadAndPlay]);
 
   const next = useCallback(() => {
     if (queue.length === 0) return;
     const ni = (index + 1) % queue.length;
     setIndex(ni);
     wantsPlayRef.current = true;
-    playerRef.current?.loadVideoById(queue[ni].id);
   }, [queue, index]);
 
   const prev = useCallback(() => {
     if (queue.length === 0) return;
-    const p = playerRef.current;
-    if (p && p.getCurrentTime() > 3) { p.seekTo(0, true); return; }
+    const a = audioRef.current;
+    if (a && a.currentTime > 3) { a.currentTime = 0; return; }
     const ni = (index - 1 + queue.length) % queue.length;
     setIndex(ni);
     wantsPlayRef.current = true;
-    playerRef.current?.loadVideoById(queue[ni].id);
   }, [queue, index]);
-
 
   const nextRef = useRef(next);
   useEffect(() => { nextRef.current = next; }, [next]);
 
   const seek = useCallback((time: number) => {
-    playerRef.current?.seekTo(time, true);
+    const a = audioRef.current;
+    if (a) a.currentTime = time;
     setProgress(time);
   }, []);
 
@@ -254,14 +160,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     });
     navigator.mediaSession.setActionHandler("play", () => {
       wantsPlayRef.current = true;
-      silentRef.current?.play().catch(() => { /* ignore */ });
-      playerRef.current?.playVideo();
+      audioRef.current?.play().catch(() => { /* ignore */ });
     });
     navigator.mediaSession.setActionHandler("pause", () => {
       wantsPlayRef.current = false;
-      playerRef.current?.pauseVideo();
+      audioRef.current?.pause();
     });
-
     navigator.mediaSession.setActionHandler("previoustrack", () => prev());
     navigator.mediaSession.setActionHandler("nexttrack", () => next());
     navigator.mediaSession.setActionHandler("seekto", (e) => {
@@ -283,32 +187,24 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, [duration, progress]);
 
   const value = useMemo<Ctx>(() => ({
-    current, queue, index, isPlaying, progress, duration, ready,
+    current, queue, index, isPlaying, progress, duration,
+    ready: true, loading, error,
     playFromQueue, toggle, next, prev, seek,
-  }), [current, queue, index, isPlaying, progress, duration, ready,
+  }), [current, queue, index, isPlaying, progress, duration, loading, error,
       playFromQueue, toggle, next, prev, seek]);
 
   return (
     <MusicCtx.Provider value={value}>
       {children}
-      {/* Hidden YouTube audio host — plays sound only, no visible video */}
-      <div
+      {/* Native audio element — keeps playing when the mobile screen locks. */}
+      <audio
+        ref={audioRef}
+        preload="auto"
+        playsInline
+        crossOrigin="anonymous"
         aria-hidden
-        style={{
-          position: "fixed",
-          left: "-9999px",
-          top: 0,
-          width: 1,
-          height: 1,
-          overflow: "hidden",
-          opacity: 0,
-          pointerEvents: "none",
-        }}
-      >
-        <div ref={hostRef} />
-      </div>
-      {/* Silent looping audio keeps the media session alive on locked screens */}
-      <audio ref={silentRef} src={SILENT_WAV} loop playsInline aria-hidden style={{ display: "none" }} />
+        style={{ display: "none" }}
+      />
     </MusicCtx.Provider>
   );
 }
