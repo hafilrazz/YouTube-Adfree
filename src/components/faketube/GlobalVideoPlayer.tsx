@@ -53,6 +53,8 @@ export function GlobalVideoPlayer() {
   const [currentTrack, setCurrentTrack] = useState<string | null>(null); // languageCode, or null = off
   const [ccMenuOpen, setCcMenuOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [miniPos, setMiniPos] = useState<{ left: number; top: number } | null>(null);
+  const dragState = useRef<{ dx: number; dy: number; moved: boolean } | null>(null);
 
   useEffect(() => {
     setPipSupported(typeof window !== "undefined" && "documentPictureInPicture" in window);
@@ -256,7 +258,60 @@ export function GlobalVideoPlayer() {
     } catch {}
   };
 
+  const miniTotalHeight = MINI_HEIGHT + 44;
+
+  // Initialize / clamp mini position
+  useEffect(() => {
+    if (mode !== "mini") return;
+    const clamp = (p: { left: number; top: number }) => {
+      const maxLeft = Math.max(0, window.innerWidth - MINI_WIDTH - 4);
+      const maxTop = Math.max(0, window.innerHeight - miniTotalHeight - 4);
+      return {
+        left: Math.min(Math.max(4, p.left), maxLeft),
+        top: Math.min(Math.max(4, p.top), maxTop),
+      };
+    };
+    setMiniPos((prev) => {
+      if (prev) return clamp(prev);
+      return clamp({
+        left: window.innerWidth - MINI_WIDTH - MINI_MARGIN,
+        top: window.innerHeight - miniTotalHeight - MINI_MARGIN,
+      });
+    });
+    const onResize = () => setMiniPos((p) => (p ? clamp(p) : p));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [mode, miniTotalHeight]);
+
   if (!current) return null;
+
+  const onMiniPointerDown = (e: React.PointerEvent) => {
+    if (mode !== "mini") return;
+    const target = e.target as HTMLElement;
+    if (target.closest("button")) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    dragState.current = { dx: e.clientX - r.left, dy: e.clientY - r.top, moved: false };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onMiniPointerMove = (e: React.PointerEvent) => {
+    const s = dragState.current;
+    if (!s) return;
+    s.moved = true;
+    const maxLeft = Math.max(0, window.innerWidth - MINI_WIDTH - 4);
+    const maxTop = Math.max(0, window.innerHeight - miniTotalHeight - 4);
+    setMiniPos({
+      left: Math.min(Math.max(4, e.clientX - s.dx), maxLeft),
+      top: Math.min(Math.max(4, e.clientY - s.dy), maxTop),
+    });
+  };
+  const onMiniPointerUp = (e: React.PointerEvent) => {
+    if (dragState.current) {
+      try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
+      dragState.current = null;
+    }
+  };
 
   // Compute container style
   let style: React.CSSProperties;
@@ -275,15 +330,17 @@ export function GlobalVideoPlayer() {
   } else if (mode === "mini") {
     style = {
       position: "fixed",
-      right: MINI_MARGIN,
-      bottom: MINI_MARGIN,
+      left: miniPos?.left ?? (typeof window !== "undefined" ? window.innerWidth - MINI_WIDTH - MINI_MARGIN : MINI_MARGIN),
+      top: miniPos?.top ?? (typeof window !== "undefined" ? window.innerHeight - miniTotalHeight - MINI_MARGIN : MINI_MARGIN),
       width: MINI_WIDTH,
-      height: MINI_HEIGHT + 44, // room for control strip
+      height: miniTotalHeight,
       zIndex: 60,
       borderRadius: 12,
       boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
       overflow: "hidden",
       background: "#000",
+      touchAction: "none",
+      cursor: dragState.current ? "grabbing" : "grab",
     };
   } else {
     // inline mode but slot not measured yet — hide off-screen (keep iframe alive)
@@ -293,7 +350,15 @@ export function GlobalVideoPlayer() {
   const showControlStrip = mode === "mini" && !isFs;
 
   return (
-    <div ref={containerRef} style={style} className="bg-black overflow-hidden">
+    <div
+      ref={containerRef}
+      style={style}
+      className="bg-black overflow-hidden"
+      onPointerDown={onMiniPointerDown}
+      onPointerMove={onMiniPointerMove}
+      onPointerUp={onMiniPointerUp}
+      onPointerCancel={onMiniPointerUp}
+    >
       <div
         style={{
           position: "relative",
