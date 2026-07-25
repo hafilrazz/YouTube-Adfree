@@ -153,6 +153,32 @@
   }
 }
 
+/* ---------- TV support (Tizen, webOS, Android TV, Fire TV, etc.) ----------
+   .tv is added by useTvNavigation() when a TV UA / platform API is detected. */
+html.tv {
+  /* 5% overscan safe area — old TVs crop the edges of the picture. */
+  --tv-safe: 2.5vw;
+}
+html.tv body {
+  padding: var(--tv-safe);
+  /* Disable text selection & tap highlight; irrelevant on a remote. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Slightly larger base font for 10-foot UI readability. */
+  font-size: 17px;
+}
+html.tv :focus-visible {
+  outline-width: 4px !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 7px rgba(255, 0, 0, 0.4) !important;
+}
+/* Smooth focus scroll into view on TVs (no janky jumps). */
+html.tv { scroll-behavior: smooth; }
+/* Hide any scrollbars — TVs can't operate them. */
+html.tv ::-webkit-scrollbar { display: none; }
+html.tv * { scrollbar-width: none; }
+
 /* Dark-mode overrides for the FakeTube UI which uses hardcoded neutral utilities. */
 .dark .bg-white { background-color: #0f0f0f !important; }
 .dark .bg-neutral-50 { background-color: #1a1a1a !important; }
