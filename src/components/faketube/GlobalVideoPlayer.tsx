@@ -349,9 +349,6 @@ export function GlobalVideoPlayer() {
 
   const showControlStrip = mode === "mini" && !isFs;
 
-  return (
-    <div
-      ref={containerRef}
   const dragHandlers = mode === "mini"
     ? {
         onPointerDown: onMiniPointerDown,
