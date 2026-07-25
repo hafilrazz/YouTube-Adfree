@@ -141,6 +141,16 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+
+  /* TV remote / keyboard: highly visible focus ring on any focusable element.
+     Uses :focus-visible so mouse clicks don't show the ring. */
+  :focus-visible {
+    outline: 3px solid #FF0000 !important;
+    outline-offset: 2px !important;
+    border-radius: 6px;
+    box-shadow: 0 0 0 5px rgba(255, 0, 0, 0.35) !important;
+    z-index: 1;
+  }
 }
 
 /* Dark-mode overrides for the FakeTube UI which uses hardcoded neutral utilities. */

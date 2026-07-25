@@ -383,14 +383,23 @@ export function GlobalVideoPlayer() {
           title={current.title}
         />
 
-        {/* Drag / tap overlay above iframe in mini mode (iframes swallow touch events) */}
+        {/* Drag / tap overlay above iframe in mini mode (iframes swallow touch events).
+            Also a focusable "button" for TV remote / keyboard: Enter expands to watch. */}
         {mode === "mini" && (
           <div
             {...dragHandlers}
             onClick={handleMiniTap}
-            className="absolute inset-0 z-[5]"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                navigate({ to: "/watch/$id", params: { id: current.id } });
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            className="absolute inset-0 z-[5] focus:outline-none"
             style={{ touchAction: "none", cursor: dragState.current ? "grabbing" : "grab" }}
-            aria-label="Drag mini player"
+            aria-label={`Expand mini player: ${current.title}`}
           />
         )}
 

@@ -142,6 +142,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <MusicPlayerProvider>
         <VideoPlayerProvider>
+          <TvNavigationBridge />
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
           <GlobalVideoPlayer />
@@ -150,4 +151,9 @@ function RootComponent() {
       </MusicPlayerProvider>
     </QueryClientProvider>
   );
+}
+
+function TvNavigationBridge() {
+  useTvNavigation();
+  return null;
 }
