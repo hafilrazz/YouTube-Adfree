@@ -388,9 +388,34 @@ async function innertube<T = unknown>(endpoint: string, body: Record<string, unk
   }
 }
 
-async function innertubeSearch(q: string): Promise<Video[]> {
-  const j = await innertube<unknown>("search", { query: q, params: "EgIQAQ%3D%3D" }); // EgIQAQ%3D%3D = filter: videos
-  if (!j) return [];
+function findContinuationToken(node: unknown): string | undefined {
+  if (!node) return undefined;
+  if (Array.isArray(node)) {
+    for (const n of node) {
+      const t = findContinuationToken(n);
+      if (t) return t;
+    }
+    return undefined;
+  }
+  if (typeof node !== "object") return undefined;
+  const obj = node as Record<string, unknown>;
+  const cc = obj.continuationCommand as { token?: string } | undefined;
+  if (cc?.token) return cc.token;
+  const cei = obj.continuationEndpoint as { continuationCommand?: { token?: string } } | undefined;
+  if (cei?.continuationCommand?.token) return cei.continuationCommand.token;
+  for (const k in obj) {
+    const t = findContinuationToken(obj[k]);
+    if (t) return t;
+  }
+  return undefined;
+}
+
+async function innertubeSearch(q: string, continuation?: string): Promise<{ items: Video[]; nextPageToken?: string }> {
+  const body: Record<string, unknown> = continuation
+    ? { continuation }
+    : { query: q, params: "EgIQAQ%3D%3D" }; // filter: videos
+  const j = await innertube<unknown>("search", body);
+  if (!j) return { items: [] };
   const renderers: YtVideoRenderer[] = [];
   walkVideoRenderers(j, renderers);
   const seen = new Set<string>();
@@ -399,7 +424,7 @@ async function innertubeSearch(q: string): Promise<Video[]> {
     const v = ytRendererToVideo(r);
     if (v && !seen.has(v.id)) { seen.add(v.id); out.push(v); }
   }
-  return out;
+  return { items: out, nextPageToken: findContinuationToken(j) };
 }
 
 async function innertubeTrending(): Promise<Video[]> {
