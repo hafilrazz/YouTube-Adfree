@@ -15,6 +15,7 @@ import { MusicPlayerProvider } from "@/lib/music-player";
 import { MiniPlayer } from "@/components/faketube/MiniPlayer";
 import { VideoPlayerProvider } from "@/lib/video-player-context";
 import { GlobalVideoPlayer } from "@/components/faketube/GlobalVideoPlayer";
+import { useTvNavigation } from "@/lib/tv-navigation";
 
 function NotFoundComponent() {
   return (
