@@ -388,9 +388,34 @@ async function innertube<T = unknown>(endpoint: string, body: Record<string, unk
   }
 }
 
-async function innertubeSearch(q: string): Promise<Video[]> {
-  const j = await innertube<unknown>("search", { query: q, params: "EgIQAQ%3D%3D" }); // EgIQAQ%3D%3D = filter: videos
-  if (!j) return [];
+function findContinuationToken(node: unknown): string | undefined {
+  if (!node) return undefined;
+  if (Array.isArray(node)) {
+    for (const n of node) {
+      const t = findContinuationToken(n);
+      if (t) return t;
+    }
+    return undefined;
+  }
+  if (typeof node !== "object") return undefined;
+  const obj = node as Record<string, unknown>;
+  const cc = obj.continuationCommand as { token?: string } | undefined;
+  if (cc?.token) return cc.token;
+  const cei = obj.continuationEndpoint as { continuationCommand?: { token?: string } } | undefined;
+  if (cei?.continuationCommand?.token) return cei.continuationCommand.token;
+  for (const k in obj) {
+    const t = findContinuationToken(obj[k]);
+    if (t) return t;
+  }
+  return undefined;
+}
+
+async function innertubeSearch(q: string, continuation?: string): Promise<{ items: Video[]; nextPageToken?: string }> {
+  const body: Record<string, unknown> = continuation
+    ? { continuation }
+    : { query: q, params: "EgIQAQ%3D%3D" }; // filter: videos
+  const j = await innertube<unknown>("search", body);
+  if (!j) return { items: [] };
   const renderers: YtVideoRenderer[] = [];
   walkVideoRenderers(j, renderers);
   const seen = new Set<string>();
@@ -399,7 +424,7 @@ async function innertubeSearch(q: string): Promise<Video[]> {
     const v = ytRendererToVideo(r);
     if (v && !seen.has(v.id)) { seen.add(v.id); out.push(v); }
   }
-  return out;
+  return { items: out, nextPageToken: findContinuationToken(j) };
 }
 
 async function innertubeTrending(): Promise<Video[]> {
@@ -614,7 +639,7 @@ export const getTrending = createServerFn({ method: "GET" })
 
     // Primary: InnerTube (YouTube's own guest API — single fast endpoint, no key, no quota)
     try {
-      const it = isTrending ? await innertubeTrending() : await innertubeSearch(data.category);
+      const it = isTrending ? await innertubeTrending() : (await innertubeSearch(data.category)).items;
       if (it.length) return it.slice(0, 32);
     } catch (e) {
       console.warn("InnerTube trending failed:", (e as Error).message);
@@ -709,14 +734,22 @@ export const searchYouTube = createServerFn({ method: "GET" })
     if (!data.q.trim()) return { items: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=1800, stale-while-revalidate=3600");
 
-    // Primary: InnerTube (fastest — one direct call to youtube.com, no key, no quota)
-    if (!data.pageToken) {
-      try {
-        const it = await innertubeSearch(data.q);
-        if (it.length) return { items: it.slice(0, data.limit) };
-      } catch (e) {
-        console.warn("InnerTube search failed:", (e as Error).message);
+    // Primary: InnerTube (fastest — one direct call to youtube.com, no key, no quota).
+    // Supports pagination via continuation tokens prefixed with "it:".
+    try {
+      const isIt = !data.pageToken || data.pageToken.startsWith("it:");
+      if (isIt) {
+        const cont = data.pageToken ? data.pageToken.slice(3) : undefined;
+        const it = await innertubeSearch(data.q, cont);
+        if (it.items.length) {
+          return {
+            items: it.items.slice(0, data.limit),
+            nextPageToken: it.nextPageToken ? `it:${it.nextPageToken}` : undefined,
+          };
+        }
       }
+    } catch (e) {
+      console.warn("InnerTube search failed:", (e as Error).message);
     }
 
     // Secondary: Piped (supports pagination)
