@@ -239,6 +239,29 @@ export function useTvNavigation() {
       }
     };
 
+    // Register Tizen (Samsung) remote keys — must be opted into per key.
+    const w = window as any;
+    try {
+      const keys = [
+        "MediaPlayPause", "MediaPlay", "MediaPause", "MediaStop",
+        "MediaFastForward", "MediaRewind", "MediaTrackNext", "MediaTrackPrevious",
+        "ChannelUp", "ChannelDown",
+        "ColorF0Red", "ColorF1Green", "ColorF2Yellow", "ColorF3Blue",
+      ];
+      keys.forEach((k) => {
+        try { w.tizen?.tvinputdevice?.registerKey?.(k); } catch {}
+      });
+    } catch {}
+
+    // Detect TV platform and add a class hook for CSS (overscan, larger UI).
+    const ua = navigator.userAgent || "";
+    const isTv =
+      /SMART-TV|SmartTV|Tizen|Web0S|WebOS|NetCast|VIERA|BRAVIA|GoogleTV|Google TV|AppleTV|AFT[A-Z0-9]|;\s?TV;|CrKey|Roku|Hisense|HbbTV/i.test(ua) ||
+      !!w.tizen ||
+      !!w.webOS ||
+      !!w.webOSSystem;
+    if (isTv) document.documentElement.classList.add("tv");
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [pathname, current, closeVideo, navigate]);
