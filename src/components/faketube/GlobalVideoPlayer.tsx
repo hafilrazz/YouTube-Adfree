@@ -53,6 +53,8 @@ export function GlobalVideoPlayer() {
   const [currentTrack, setCurrentTrack] = useState<string | null>(null); // languageCode, or null = off
   const [ccMenuOpen, setCcMenuOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [miniPos, setMiniPos] = useState<{ left: number; top: number } | null>(null);
+  const dragState = useRef<{ dx: number; dy: number; moved: boolean } | null>(null);
 
   useEffect(() => {
     setPipSupported(typeof window !== "undefined" && "documentPictureInPicture" in window);
