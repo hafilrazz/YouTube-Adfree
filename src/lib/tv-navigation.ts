@@ -153,13 +153,16 @@ export function useTvNavigation() {
         (target as any)?.isContentEditable;
 
       const key = e.key;
+      const code = (e as any).keyCode as number | undefined;
 
-      // Back handling (TV remote Back = "GoBack"/"BrowserBack"; keyboard = Escape).
-      // Backspace is only treated as Back when NOT typing in a field.
+      // Media keys (Play/Pause/Stop/FF/RW) — let the browser/iframe handle.
+      if (code != null && KEYCODE.MEDIA.has(code)) return;
+
+      // Back handling — matches keyboard Escape, TV remote Back on all major
+      // TV OSes (Tizen 10009, webOS 461, Fire TV/Android TV Backspace, etc).
       const isBackKey =
-        key === "Escape" ||
-        key === "GoBack" ||
-        key === "BrowserBack" ||
+        BACK_KEY_STRINGS.has(key) ||
+        (code != null && KEYCODE.BACK.has(code) && (code !== 8 || !editing)) ||
         (!editing && key === "Backspace");
 
       if (isBackKey) {
@@ -177,23 +180,48 @@ export function useTvNavigation() {
           closeVideo();
           return;
         }
+        // At root on Tizen/webOS: signal the platform to exit the app.
+        const w = window as any;
+        if (w.tizen?.application?.getCurrentApplication) {
+          e.preventDefault();
+          try { w.tizen.application.getCurrentApplication().exit(); } catch {}
+          return;
+        }
+        if (w.webOS?.platformBack) {
+          e.preventDefault();
+          try { w.webOS.platformBack(); } catch {}
+          return;
+        }
         return;
       }
 
       if (editing) return;
 
-      // Spatial arrow navigation.
+      // Spatial arrow navigation — accept both key strings and numeric keyCodes
+      // (older TV browsers only send keyCode).
       const dir: Dir | null =
-        key === "ArrowUp"
+        key === "ArrowUp" || (code != null && KEYCODE.UP.has(code))
           ? "up"
-          : key === "ArrowDown"
+          : key === "ArrowDown" || (code != null && KEYCODE.DOWN.has(code))
             ? "down"
-            : key === "ArrowLeft"
+            : key === "ArrowLeft" || (code != null && KEYCODE.LEFT.has(code))
               ? "left"
-              : key === "ArrowRight"
+              : key === "ArrowRight" || (code != null && KEYCODE.RIGHT.has(code))
                 ? "right"
                 : null;
-      if (!dir) return;
+
+      // OK/Enter with no focused element → focus first focusable.
+      if (!dir) {
+        const isEnter = key === "Enter" || (code != null && KEYCODE.ENTER.has(code));
+        if (isEnter) {
+          const active = document.activeElement as HTMLElement | null;
+          if (!active || active === document.body) {
+            e.preventDefault();
+            focusInitial();
+          }
+        }
+        return;
+      }
 
       const active = document.activeElement as HTMLElement | null;
       const hasFocus =
