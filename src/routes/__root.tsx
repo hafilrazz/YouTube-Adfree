@@ -15,6 +15,7 @@ import { MusicPlayerProvider } from "@/lib/music-player";
 import { MiniPlayer } from "@/components/faketube/MiniPlayer";
 import { VideoPlayerProvider } from "@/lib/video-player-context";
 import { GlobalVideoPlayer } from "@/components/faketube/GlobalVideoPlayer";
+import { useTvNavigation } from "@/lib/tv-navigation";
 
 function NotFoundComponent() {
   return (
@@ -141,6 +142,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <MusicPlayerProvider>
         <VideoPlayerProvider>
+          <TvNavigationBridge />
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
           <GlobalVideoPlayer />
@@ -149,4 +151,9 @@ function RootComponent() {
       </MusicPlayerProvider>
     </QueryClientProvider>
   );
+}
+
+function TvNavigationBridge() {
+  useTvNavigation();
+  return null;
 }
