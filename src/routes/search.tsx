@@ -48,7 +48,7 @@ function SearchPage() {
 
   const { data, isFetching, error } = useQuery({
     queryKey: ["yt-search-page", q, page],
-    queryFn: () => searchFn({ data: { q, limit: 24, pageToken: page || undefined } }),
+    queryFn: () => searchFn({ data: { q, limit: 50, pageToken: page || undefined } }),
     enabled: q.trim().length > 0,
     placeholderData: keepPreviousData,
     staleTime: 5 * 60_000,
