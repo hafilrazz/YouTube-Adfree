@@ -639,7 +639,7 @@ export const getTrending = createServerFn({ method: "GET" })
 
     // Primary: InnerTube (YouTube's own guest API — single fast endpoint, no key, no quota)
     try {
-      const it = isTrending ? await innertubeTrending() : await innertubeSearch(data.category);
+      const it = isTrending ? await innertubeTrending() : (await innertubeSearch(data.category)).items;
       if (it.length) return it.slice(0, 32);
     } catch (e) {
       console.warn("InnerTube trending failed:", (e as Error).message);
