@@ -3,6 +3,52 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useVideoPlayer } from "@/lib/video-player-context";
 
 /**
+ * Cross-platform TV remote key codes.
+ * Different TV OSes send different KeyboardEvent.key / keyCode values for
+ * the same physical remote button.
+ *
+ * Sources: Samsung Tizen, LG webOS, Android TV / Google TV, Amazon Fire TV,
+ * Panasonic/Hisense/Vizio browsers.
+ */
+const KEYCODE = {
+  // Back button
+  BACK: new Set<number>([
+    8,      // Backspace (most browsers, Android TV)
+    27,     // Escape
+    10009,  // Tizen (Samsung) RETURN
+    461,    // webOS (LG) BACK
+    166,    // Some Panasonic remotes
+  ]),
+  // D-pad
+  UP: new Set<number>([38]),
+  DOWN: new Set<number>([40]),
+  LEFT: new Set<number>([37]),
+  RIGHT: new Set<number>([39]),
+  ENTER: new Set<number>([13, 32]), // Enter + Space (OK button)
+  // Media keys (let the YouTube iframe handle them; we just don't hijack)
+  MEDIA: new Set<number>([
+    179,    // Play/Pause
+    178,    // Stop
+    176,    // Next
+    177,    // Previous
+    413,    // Tizen STOP
+    415,    // Tizen PLAY
+    417,    // Tizen FF
+    412,    // Tizen REWIND
+    19,     // Tizen PAUSE
+  ]),
+};
+
+const BACK_KEY_STRINGS = new Set([
+  "Escape",
+  "GoBack",
+  "BrowserBack",
+  "XF86Back",
+  "Back",
+]);
+
+
+/**
  * TV remote + keyboard navigation.
  *
  * - Arrow keys move focus spatially to the nearest visible focusable element
