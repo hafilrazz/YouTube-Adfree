@@ -5,9 +5,11 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "display_override": ["fullscreen", "standalone", "minimal-ui", "browser"],
+  "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#FF0000",
+  "categories": ["entertainment", "video", "music"],
   "icons": [
     {
       "src": "/app-icon.png",
