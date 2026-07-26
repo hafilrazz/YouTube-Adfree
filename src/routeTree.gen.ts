@@ -15,6 +15,7 @@ import { Route as PlaylistRouteImport } from './routes/playlist'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as LikedRouteImport } from './routes/liked'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as CompletedRouteImport } from './routes/completed'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
@@ -50,6 +51,11 @@ const HistoryRoute = HistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DiscoverRoute = DiscoverRouteImport.update({
+  id: '/discover',
+  path: '/discover',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CompletedRoute = CompletedRouteImport.update({
   id: '/completed',
   path: '/completed',
@@ -74,6 +80,7 @@ const MusicPlaylistRoute = MusicPlaylistRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/completed': typeof CompletedRoute
+  '/discover': typeof DiscoverRoute
   '/history': typeof HistoryRoute
   '/liked': typeof LikedRoute
   '/music': typeof MusicRouteWithChildren
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/completed': typeof CompletedRoute
+  '/discover': typeof DiscoverRoute
   '/history': typeof HistoryRoute
   '/liked': typeof LikedRoute
   '/music': typeof MusicRouteWithChildren
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/completed': typeof CompletedRoute
+  '/discover': typeof DiscoverRoute
   '/history': typeof HistoryRoute
   '/liked': typeof LikedRoute
   '/music': typeof MusicRouteWithChildren
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/completed'
+    | '/discover'
     | '/history'
     | '/liked'
     | '/music'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/completed'
+    | '/discover'
     | '/history'
     | '/liked'
     | '/music'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/completed'
+    | '/discover'
     | '/history'
     | '/liked'
     | '/music'
@@ -150,6 +162,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CompletedRoute: typeof CompletedRoute
+  DiscoverRoute: typeof DiscoverRoute
   HistoryRoute: typeof HistoryRoute
   LikedRoute: typeof LikedRoute
   MusicRoute: typeof MusicRouteWithChildren
@@ -203,6 +216,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/discover': {
+      id: '/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof DiscoverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/completed': {
       id: '/completed'
       path: '/completed'
@@ -247,6 +267,7 @@ const MusicRouteWithChildren = MusicRoute._addFileChildren(MusicRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CompletedRoute: CompletedRoute,
+  DiscoverRoute: DiscoverRoute,
   HistoryRoute: HistoryRoute,
   LikedRoute: LikedRoute,
   MusicRoute: MusicRouteWithChildren,
