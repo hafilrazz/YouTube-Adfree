@@ -44,8 +44,9 @@ function DiscoverPage() {
     queryFn: async () => {
       const topic = pickTopic();
       const res = await trending({ data: { category: topic } });
-      // shuffle so order also changes each refresh
-      const items = [...(res.items ?? [])].sort(() => Math.random() - 0.5);
+      const list = Array.isArray(res) ? res : (res?.items ?? []);
+      const items = [...list].sort(() => Math.random() - 0.5);
+
       return { topic, items };
     },
     staleTime: 0,
