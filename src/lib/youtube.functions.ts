@@ -399,13 +399,16 @@ function findContinuationToken(node: unknown): string | undefined {
   }
   if (typeof node !== "object") return undefined;
   const obj = node as Record<string, unknown>;
-  const cc = obj.continuationCommand as { token?: string } | undefined;
-  if (cc?.token) return cc.token;
-  const cei = obj.continuationEndpoint as { continuationCommand?: { token?: string } } | undefined;
-  if (cei?.continuationCommand?.token) return cei.continuationCommand.token;
+  // Only the "load more results" token lives inside continuationItemRenderer.
+  // Other continuationCommand tokens (chip filters, menus) must be ignored.
+  const cir = obj.continuationItemRenderer as
+    | { continuationEndpoint?: { continuationCommand?: { token?: string } } }
+    | undefined;
+  const t = cir?.continuationEndpoint?.continuationCommand?.token;
+  if (t) return t;
   for (const k in obj) {
-    const t = findContinuationToken(obj[k]);
-    if (t) return t;
+    const found = findContinuationToken(obj[k]);
+    if (found) return found;
   }
   return undefined;
 }
