@@ -43,9 +43,10 @@ function DiscoverPage() {
     queryKey: ["discover-feed"],
     queryFn: async () => {
       const topic = pickTopic();
-      const res = await trending({ data: { category: topic } });
-      const list = Array.isArray(res) ? res : (res?.items ?? []);
+      const res = (await trending({ data: { category: topic } })) as unknown;
+      const list = (Array.isArray(res) ? res : ((res as { items?: unknown[] })?.items ?? [])) as import("@/lib/faketube-data").Video[];
       const items = [...list].sort(() => Math.random() - 0.5);
+
 
       return { topic, items };
     },
