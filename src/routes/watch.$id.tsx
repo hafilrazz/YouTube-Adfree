@@ -114,12 +114,12 @@ function Watch() {
 
           <h1 className="mt-4 text-xl sm:text-2xl font-bold break-words leading-tight">{video.title}</h1>
 
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <img src={video.channelAvatar} className="h-10 w-10 rounded-full" alt="" />
-              <div>
-                <p className="font-semibold text-sm">{video.channel}</p>
-                <p className="text-xs text-neutral-600">YouTube channel</p>
+              <img src={video.channelAvatar} className="h-10 w-10 rounded-full object-cover" alt="" />
+              <div className="min-w-0">
+                <p className="font-bold text-base line-clamp-1">{video.channel}</p>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400">YouTube channel</p>
               </div>
               <button
                 onClick={() =>
@@ -130,64 +130,56 @@ function Watch() {
                   })
                 }
                 disabled={!video.channelId}
-                className={`ml-4 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`ml-2 px-4 py-2 rounded-full text-sm font-bold transition-colors disabled:opacity-50 ${
                   subscriptions.isSubscribed(video.channelId ?? "")
-                    ? "bg-neutral-100 text-neutral-900"
-                    : "bg-neutral-900 text-white"
+                    ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                    : "bg-neutral-900 dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200"
                 }`}
-                title={!video.channelId ? "Channel unavailable" : ""}
               >
-                {subscriptions.isSubscribed(video.channelId ?? "") && <Bell className="h-4 w-4" />}
                 {subscriptions.isSubscribed(video.channelId ?? "") ? "Subscribed" : "Subscribe"}
               </button>
             </div>
+            
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center bg-neutral-100 rounded-full">
+              <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-full p-0.5">
                 <button
                   onClick={() => likes.toggle(video.id)}
-                  className="px-4 py-2 flex items-center gap-2 border-r border-neutral-300 hover:bg-neutral-200 rounded-l-full text-sm"
+                  className="px-4 py-1.5 flex items-center gap-2 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-l-full text-sm font-medium border-r border-neutral-300 dark:border-neutral-700"
                 >
-                  <ThumbsUp className={`h-4 w-4 ${liked ? "fill-current text-blue-600" : ""}`} />
-                  {liked ? "Liked" : "Like"}
+                  <ThumbsUp className={`h-5 w-5 ${liked ? "fill-current" : ""}`} />
+                  <span>{liked ? "Liked" : "Like"}</span>
                 </button>
-                <button className="px-4 py-2 hover:bg-neutral-200 rounded-r-full">
-                  <ThumbsDown className="h-4 w-4" />
+                <button className="px-4 py-1.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-r-full">
+                  <ThumbsDown className="h-5 w-5" />
                 </button>
               </div>
-              <button
-                onClick={() => playlist.toggle(video.id)}
-                className={`rounded-full px-4 py-2 text-sm flex items-center gap-2 ${
-                  saved ? "bg-blue-50 text-blue-700 hover:bg-blue-100" : "bg-neutral-100 hover:bg-neutral-200"
-                }`}
-              >
-                {saved ? <BookmarkCheck className="h-4 w-4" /> : <BookmarkPlus className="h-4 w-4" />}
-                {saved ? "Saved" : "Save"}
-              </button>
+
               <button
                 onClick={() => musicVids.toggle(video.id)}
-                className={`rounded-full px-4 py-2 text-sm flex items-center gap-2 ${
-                  inMusic ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-neutral-100 hover:bg-neutral-200"
+                className={`rounded-full px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
+                  inMusic ? "bg-red-600 text-white hover:bg-red-700" : "bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                 }`}
-                title={inMusic ? "In music playlist" : "Add to music playlist"}
               >
-                {inMusic ? <Check className="h-4 w-4" /> : <Music2 className="h-4 w-4" />}
-                {inMusic ? "In music" : "Add to music"}
+                <Music2 className="h-5 w-5" />
+                <span>{inMusic ? "In music" : "Add to music"}</span>
               </button>
-              <button className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2">
-                <Share2 className="h-4 w-4" /> Share
+
+              <button className="bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full px-4 py-2 text-sm font-medium flex items-center gap-2">
+                <Share2 className="h-5 w-5" />
+                <span>Share</span>
               </button>
+
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setDownloadOpen((v) => !v)}
-                  className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2"
-                  aria-expanded={downloadOpen}
-                  aria-haspopup="menu"
+                  className="bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full px-4 py-2 text-sm font-medium flex items-center gap-2"
                 >
-                  <Download className="h-4 w-4" /> Download
+                  <Download className="h-5 w-5" />
+                  <span>Download</span>
                 </button>
                 {downloadOpen && (
-                  <div className="absolute right-0 top-full z-30 mt-2 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl" role="menu">
+                  <div className="absolute right-0 top-full z-30 mt-2 w-48 overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl">
                     {downloaderLinks.map((link) => (
                       <a
                         key={link.label}
@@ -195,8 +187,7 @@ function Watch() {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => setDownloadOpen(false)}
-                        className="block px-4 py-3 text-sm text-neutral-900 hover:bg-neutral-100"
-                        role="menuitem"
+                        className="block px-4 py-3 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                       >
                         Open {link.label}
                       </a>
@@ -204,22 +195,23 @@ function Watch() {
                   </div>
                 )}
               </div>
-              <button className="bg-neutral-100 hover:bg-neutral-200 rounded-full px-4 py-2 text-sm flex items-center gap-2">
-                <Scissors className="h-4 w-4" /> Clip
-              </button>
             </div>
           </div>
-          <div className="mt-4 p-3 rounded-xl bg-neutral-100">
-            <p className="text-sm font-semibold">{video.views} views · {video.posted}</p>
-            <p className={`mt-2 text-sm whitespace-pre-wrap break-words ${descExpanded ? "" : "line-clamp-2"}`}>
+          <div className="mt-4 p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer group" onClick={() => !descExpanded && setDescExpanded(true)}>
+            <div className="flex items-center gap-2 text-sm font-bold">
+              <span>{video.views} views</span>
+              <span>·</span>
+              <span>{video.posted}</span>
+            </div>
+            <div className={`mt-1 text-sm whitespace-pre-wrap break-words ${descExpanded ? "" : "line-clamp-2"}`}>
               {video.description}
-            </p>
+            </div>
             {video.description && video.description.length > 120 && (
               <button
-                onClick={() => setDescExpanded((v) => !v)}
-                className="mt-2 text-sm font-semibold hover:underline"
+                onClick={(e) => { e.stopPropagation(); setDescExpanded((v) => !v); }}
+                className="mt-1 text-sm font-bold block"
               >
-                {descExpanded ? "Show less" : "Show more"}
+                {descExpanded ? "Show less" : "...more"}
               </button>
             )}
           </div>

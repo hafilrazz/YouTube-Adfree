@@ -158,12 +158,12 @@ function SearchBox() {
             else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + total + 1) % (total + 1)); }
             else if (e.key === "Escape") setOpen(false);
           }}
-          className="flex-1 min-w-0 border border-neutral-300 rounded-l-full px-2.5 sm:px-4 py-2 text-sm outline-none focus:border-blue-500"
+          className="flex-1 min-w-0 border border-neutral-300 dark:border-neutral-700 rounded-l-full px-2.5 sm:px-4 py-2 text-sm outline-none focus:border-blue-500 bg-white dark:bg-black"
           placeholder="Search"
         />
         <button
           onClick={submitSearch}
-          className="shrink-0 px-3 sm:px-5 border border-l-0 border-neutral-300 rounded-r-full bg-neutral-50 hover:bg-neutral-100"
+          className="shrink-0 px-3 sm:px-5 border border-l-0 border-neutral-300 dark:border-neutral-700 rounded-r-full bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700"
           aria-label="Search"
         >
           <Search className="h-4 w-4" />
@@ -303,23 +303,32 @@ function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpe
           w-60 ${open ? "md:w-60" : "md:w-20"}`}
       >
         <nav className="py-2">
-          {items.map(({ icon: Icon, label, to }) => {
-            const desktopLayout = open
-              ? "md:flex-row md:items-center md:gap-6 md:px-6 md:py-2"
-              : "md:flex-col md:items-center md:gap-1 md:py-4 md:px-0";
-            const desktopText = open ? "md:text-sm" : "md:text-[10px]";
-            return (
-              <Link
-                key={label}
-                to={to}
-                onClick={onCloseMobile}
-                className={`flex flex-row items-center gap-6 px-6 py-2 ${desktopLayout} hover:bg-neutral-100 mx-2 rounded-lg`}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                <span className={`text-sm ${desktopText}`}>{label}</span>
-              </Link>
-            );
-          })}
+          {sections.map((section, sIdx) => (
+            <div key={sIdx} className="border-b border-neutral-200 dark:border-neutral-800 pb-2 mb-2 last:border-0">
+              {section.title && open && (
+                <div className="px-6 py-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                  {section.title}
+                </div>
+              )}
+              {section.items.map(({ icon: Icon, label, to }) => {
+                const desktopLayout = open
+                  ? "md:flex-row md:items-center md:gap-6 md:px-6 md:py-2"
+                  : "md:flex-col md:items-center md:gap-1 md:py-4 md:px-0";
+                const desktopText = open ? "md:text-sm" : "md:text-[10px]";
+                return (
+                  <Link
+                    key={label}
+                    to={to}
+                    onClick={onCloseMobile}
+                    className={`flex flex-row items-center gap-6 px-6 py-2 ${desktopLayout} hover:bg-neutral-100 dark:hover:bg-neutral-800 mx-2 rounded-lg`}
+                  >
+                    <Icon className="h-5 w-5 shrink-0" />
+                    <span className={`text-sm ${desktopText} truncate`}>{label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
       </aside>
@@ -330,13 +339,15 @@ function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpe
 
 function CategoryBar({ active, onChange }: { active: string; onChange: (c: string) => void }) {
   return (
-    <div className="sticky top-14 z-30 bg-white border-b border-neutral-200 px-4 py-3 flex gap-3 overflow-x-auto">
+    <div className="sticky top-14 z-30 bg-white dark:bg-[#0f0f0f] border-b border-neutral-200 dark:border-neutral-800 px-4 py-3 flex gap-3 overflow-x-auto no-scrollbar">
       {CATEGORIES.map((c) => (
         <button
           key={c}
           onClick={() => onChange(c)}
-          className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${
-            active === c ? "bg-neutral-900 text-white" : "bg-neutral-100 hover:bg-neutral-200"
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+            active === c 
+              ? "bg-neutral-900 text-white dark:bg-white dark:text-black" 
+              : "bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white"
           }`}
         >
           {c}
