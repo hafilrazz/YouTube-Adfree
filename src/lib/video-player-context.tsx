@@ -5,6 +5,7 @@ export type VideoRef = {
   title: string;
   channel?: string;
   thumbnail?: string;
+  isShort?: boolean;
 };
 
 type Ctx = {

@@ -59,7 +59,7 @@ function ShortsPage() {
         ) : (
           <div className="flex flex-col gap-8">
             {videos.map((v, i) => (
-              v && <ShortVideoItem key={`${v.id}-${i}`} video={v} onVisible={() => openVideo(v)} />
+              v && <ShortVideoItem key={`${v.id}-${i}`} video={v} onVisible={() => openVideo({ ...v, isShort: true })} />
             ))}
             
             <div id="shorts-sentinel" className="h-20 flex items-center justify-center">

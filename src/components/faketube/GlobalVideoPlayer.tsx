@@ -223,6 +223,7 @@ export function GlobalVideoPlayer() {
   };
 
   const togglePip = async () => {
+    if (current?.isShort) return; // Disable PiP for shorts
     const w = window as any;
     const wrap = containerRef.current;
     if (!wrap || !w.documentPictureInPicture) return;
@@ -470,7 +471,7 @@ export function GlobalVideoPlayer() {
 
         {mode === "inline" && (
           <div className="absolute bottom-2 right-2 z-10 flex gap-1 md:hidden">
-            {pipSupported && (
+            {pipSupported && !current.isShort && (
               <button
                 type="button"
                 onClick={togglePip}
