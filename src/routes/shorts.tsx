@@ -20,7 +20,7 @@ export const Route = createFileRoute("/shorts")({
 
 function ShortsPage() {
   const shortsFn = useServerFn(getShorts);
-  const { openVideo } = useVideoPlayer();
+  const { openVideo, closeVideo } = useVideoPlayer();
   
   const {
     data,
@@ -35,6 +35,14 @@ function ShortsPage() {
     getNextPageParam: (last) => last?.nextPageToken || undefined,
     staleTime: 5 * 60_000,
   });
+
+  // When leaving the shorts page, close the mini player
+  useEffect(() => {
+    return () => {
+      closeVideo();
+    };
+  }, [closeVideo]);
+
 
   const videos = data?.pages.flatMap(p => p.items) ?? [];
 
