@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouterState, useNavigate } from "@tanstack/react-router";
-import { X, Maximize2, Minimize2, PictureInPicture2, Captions, Check } from "lucide-react";
+import { X, Maximize2, Minimize2, Captions, Check } from "lucide-react";
 import { useVideoPlayer } from "@/lib/video-player-context";
 import { getProgress, saveProgress } from "@/lib/user-data";
 
