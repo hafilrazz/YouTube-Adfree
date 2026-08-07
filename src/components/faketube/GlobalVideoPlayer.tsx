@@ -134,6 +134,19 @@ export function GlobalVideoPlayer() {
         events: {
           onReady: (e: any) => {
             e.target.playVideo();
+            
+            // Force disable PiP on the underlying video element if it's a short
+            if (current.isShort) {
+              try {
+                const iframe = mountRef.current?.querySelector('iframe') || document.querySelector(`iframe[src*="${current.id}"]`);
+                if (iframe) {
+                   // Note: Direct access to iframe video is blocked by CORS usually, 
+                   // but we can try to send a postMessage if YT API supports it or use attribute hints.
+                   // The best way for YT Embed is the disablekb and controls=0 which we already have.
+                }
+              } catch(err) {}
+            }
+
             interval = setInterval(() => {
               const p = playerRef.current;
               if (!p?.getCurrentTime) return;

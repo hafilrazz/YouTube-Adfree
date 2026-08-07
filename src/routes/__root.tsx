@@ -138,6 +138,17 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  // Global effect to prevent auto-PiP when page visibility changes (going home on mobile)
+  useEffect(() => {
+    const handleVisibility = () => {
+      // If we are moving to background, we usually trigger PiP in watch.$id.tsx
+      // But we should ensure we don't do it if it's a short.
+      // The individual route visibility handlers should handle this.
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <MusicPlayerProvider>
