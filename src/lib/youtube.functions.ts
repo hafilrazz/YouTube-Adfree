@@ -1288,8 +1288,9 @@ export const getShorts = createServerFn({ method: "GET" })
     // Tertiary: YouTube Data API
     try {
       const s = await ytFetch<{ items?: YTSearchItem[] }>(
-        `/search?part=snippet&type=video&videoDuration=short&maxResults=24&q=${encodeURIComponent(data.q + " shorts")}`,
+        `/search?part=snippet&type=video&videoDuration=short&maxResults=24&q=${encodeURIComponent(query)}`,
       );
+
       const ids = (s.items ?? []).map((it) => it.id?.videoId).filter((x): x is string => Boolean(x));
       if (!ids.length) return { items: [] };
       const d = await ytFetch<{ items?: YTVideoItem[] }>(
