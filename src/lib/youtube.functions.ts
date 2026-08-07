@@ -1000,7 +1000,38 @@ export interface WatchComment {
   pinned: boolean;
   hearted: boolean;
   verified: boolean;
+  repliesData?: WatchComment[];
 }
+
+export const getCommentReplies = createServerFn({ method: "GET" })
+  .inputValidator((d: { videoId: string; commentId: string }) => ({
+    videoId: String(d?.videoId ?? ""),
+    commentId: String(d?.commentId ?? ""),
+  }))
+  .handler(async ({ data }): Promise<WatchComment[]> => {
+    if (!data.videoId || !data.commentId) return [];
+    setResponseHeader("cache-control", "public, max-age=300, s-maxage=1800, stale-while-revalidate=3600");
+
+    try {
+      // Piped replies
+      const res = await piped<{ comments?: any[] }>(`/comments/${encodeURIComponent(data.videoId)}?replyTo=${encodeURIComponent(data.commentId)}`);
+      return (res.comments ?? []).map((c: any) => ({
+        id: c.commentId ?? Math.random().toString(36).slice(2),
+        author: c.author ?? "",
+        avatar: c.thumbnail || avatar(c.author ?? "user"),
+        text: stripHtml(c.commentText ?? ""),
+        time: c.commentedTime ?? "",
+        likes: typeof c.likeCount === "number" ? c.likeCount : 0,
+        replies: 0,
+        pinned: false,
+        hearted: Boolean(c.hearted),
+        verified: Boolean(c.verified),
+      }));
+    } catch (e) {
+      console.warn("Piped replies failed:", (e as Error).message);
+      return [];
+    }
+  });
 
 export const getComments = createServerFn({ method: "GET" })
   .inputValidator((d: { id: string; pageToken?: string }) => ({
