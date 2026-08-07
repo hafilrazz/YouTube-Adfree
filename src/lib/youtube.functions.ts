@@ -1253,8 +1253,9 @@ export const getShorts = createServerFn({ method: "GET" })
     // Primary: Piped search, then filter to short-duration videos.
     try {
       const path = data.pageToken
-        ? `/nextpage/search?nextpage=${encodeURIComponent(data.pageToken)}&q=${encodeURIComponent(data.q)}&filter=videos`
-        : `/search?q=${encodeURIComponent(data.q + " shorts")}&filter=videos`;
+        ? `/nextpage/search?nextpage=${encodeURIComponent(data.pageToken)}&q=${encodeURIComponent(query)}&filter=videos`
+        : `/search?q=${encodeURIComponent(query)}&filter=videos`;
+
       const res = await piped<{ items?: PipedItem[]; nextpage?: string | null }>(path);
       const items = (res.items ?? [])
         .filter((it) => it.isShort || (typeof it.duration === "number" && it.duration > 0 && it.duration <= 60))
