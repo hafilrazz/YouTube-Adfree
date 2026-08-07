@@ -249,6 +249,7 @@ export function GlobalVideoPlayer() {
   const togglePip = async () => {
     if (current?.isShort) {
       console.log("PiP disabled for shorts");
+      setIsPip(false);
       return;
     }
     const w = window as any;
