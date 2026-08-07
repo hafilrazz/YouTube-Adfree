@@ -42,13 +42,10 @@ export function GlobalVideoPlayer() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<any>(null);
-  const pipWinRef = useRef<Window | null>(null);
   const placeholderRef = useRef<HTMLDivElement | null>(null);
 
   const [rect, setRect] = useState<Rect | null>(null);
   const [isFs, setIsFs] = useState(false);
-  const [isPip, setIsPip] = useState(false);
-  const [pipSupported, setPipSupported] = useState(false);
   const [tracks, setTracks] = useState<CaptionTrack[]>([]);
   const [currentTrack, setCurrentTrack] = useState<string | null>(null); // languageCode, or null = off
   const [ccMenuOpen, setCcMenuOpen] = useState(false);
