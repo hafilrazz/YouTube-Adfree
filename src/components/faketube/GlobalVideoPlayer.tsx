@@ -496,7 +496,7 @@ export function GlobalVideoPlayer() {
           )}
         </div>
 
-        {mode === "inline" && (
+        {mode === "inline" && !current.isShort && (
           <div className="absolute bottom-2 right-2 z-10 flex gap-1 md:hidden">
             {pipSupported && !current.isShort && (
               <button
