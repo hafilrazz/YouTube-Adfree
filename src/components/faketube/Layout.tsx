@@ -266,27 +266,30 @@ function SearchBox() {
 
 
 function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpen: boolean; onCloseMobile: () => void }) {
-  const items = [
-    { icon: Home, label: "Home", to: "/" as const },
-    { icon: Compass, label: "Discover", to: "/discover" as const },
-    { icon: Users, label: "Subscriptions", to: "/subscriptions" as const },
-
-
-
-
-
-
-
-
-    { icon: ListVideo, label: "Playlist", to: "/playlist" as const },
-    { icon: History, label: "History", to: "/history" as const },
-    { icon: CheckCircle2, label: "Completed", to: "/completed" as const },
-
-    { icon: Clock, label: "Watch later", to: "/playlist" as const },
-    { icon: ThumbsUp, label: "Liked videos", to: "/liked" as const },
-    { icon: Music2, label: "Music", to: "/music" as const },
-    
-
+  const sections = [
+    {
+      items: [
+        { icon: Home, label: "Home", to: "/" as const },
+        { icon: Compass, label: "Discover", to: "/discover" as const },
+        { icon: Users, label: "Subscriptions", to: "/subscriptions" as const },
+      ]
+    },
+    {
+      title: "You",
+      items: [
+        { icon: History, label: "History", to: "/history" as const },
+        { icon: ListVideo, label: "Playlist", to: "/playlist" as const },
+        { icon: CheckCircle2, label: "Completed", to: "/completed" as const },
+        { icon: Clock, label: "Watch later", to: "/playlist" as const },
+        { icon: ThumbsUp, label: "Liked videos", to: "/liked" as const },
+      ]
+    },
+    {
+      title: "Explore",
+      items: [
+        { icon: Music2, label: "Music", to: "/music" as const },
+      ]
+    }
   ];
   return (
     <>
