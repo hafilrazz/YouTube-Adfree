@@ -129,7 +129,8 @@ export function GlobalVideoPlayer() {
           start, 
           playsinline: 1, 
           fs: 1,
-          disablekb: current.isShort ? 1 : 0
+          disablekb: current.isShort ? 1 : 0,
+          controls: current.isShort ? 0 : 1
         },
         events: {
           onReady: (e: any) => {
@@ -249,6 +250,7 @@ export function GlobalVideoPlayer() {
   const togglePip = async () => {
     if (current?.isShort) {
       console.log("PiP disabled for shorts");
+      setIsPip(false);
       return;
     }
     const w = window as any;
@@ -432,7 +434,7 @@ export function GlobalVideoPlayer() {
         )}
 
         {/* Overlay controls */}
-        <div className={`absolute top-2 right-2 z-10 flex gap-1 ${current.isShort ? "hidden" : ""}`}>
+        <div className={`absolute top-2 right-2 z-10 flex gap-1 ${current.isShort ? "opacity-0 pointer-events-none" : ""}`}>
           {tracks.length > 0 && (
             <div className="relative">
               <button
