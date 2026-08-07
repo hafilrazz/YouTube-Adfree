@@ -1272,8 +1272,9 @@ export const getShorts = createServerFn({ method: "GET" })
     // Secondary: Invidious
     try {
       const items = await invidious<InvVideoItem[]>(
-        `/api/v1/search?q=${encodeURIComponent(data.q + " shorts")}&type=video&duration=short`,
+        `/api/v1/search?q=${encodeURIComponent(query)}&type=video&duration=short`,
       );
+
       const mapped = items
         .filter((it) => typeof it.lengthSeconds === "number" && it.lengthSeconds > 0 && it.lengthSeconds <= 60)
         .map(invToVideo)
