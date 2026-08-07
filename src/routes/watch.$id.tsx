@@ -112,7 +112,7 @@ function Watch() {
           <VideoSlot />
 
 
-          <h1 className="mt-4 text-lg sm:text-xl font-bold break-words">{video.title}</h1>
+          <h1 className="mt-4 text-xl sm:text-2xl font-bold break-words leading-tight">{video.title}</h1>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
