@@ -346,6 +346,8 @@ function ytVideoToVideo(it: YTVideoItem): Video | null {
 // is the same endpoint the youtube.com web app itself calls.
 
 const INNERTUBE_KEY = "AIzaSyAO_FL9IsIrOS3wgxHhpkGkY74dxHb0X8Y";
+const INNERTUBE_CLIENT_VERSION = "2.20240726.00.00";
+
 const INNERTUBE_CONTEXT = {
   client: {
     clientName: "WEB",
@@ -413,10 +415,11 @@ function findContinuationToken(node: unknown): string | undefined {
   return undefined;
 }
 
-async function innertubeSearch(q: string, continuation?: string): Promise<{ items: Video[]; nextPageToken?: string }> {
+async function innertubeSearch(q: string, continuation?: string, params?: string): Promise<{ items: Video[]; nextPageToken?: string }> {
   const body: Record<string, unknown> = continuation
     ? { continuation }
-    : { query: q, params: "EgIQAQ%3D%3D" }; // filter: videos
+    : { query: q, params: params || "EgIQAQ%3D%3D" }; // default filter: videos
+
   const j = await innertube<unknown>("search", body);
   if (!j) return { items: [] };
   const renderers: YtVideoRenderer[] = [];

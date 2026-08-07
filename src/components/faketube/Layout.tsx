@@ -135,8 +135,12 @@ function SearchBox() {
 
   return (
     <div ref={wrapRef} className="min-w-0 w-full flex-1 max-w-2xl mx-1 sm:mx-4 flex items-center relative">
-      <div className="flex min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 group">
+        <div className="absolute left-3 hidden group-focus-within:block pointer-events-none">
+          <Search className="h-4 w-4 text-neutral-500" />
+        </div>
         <input
+
           value={q}
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
@@ -158,7 +162,7 @@ function SearchBox() {
             else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + total + 1) % (total + 1)); }
             else if (e.key === "Escape") setOpen(false);
           }}
-          className="flex-1 min-w-0 border border-neutral-300 dark:border-neutral-700 rounded-l-full px-2.5 sm:px-4 py-2 text-sm outline-none focus:border-blue-500 bg-white dark:bg-black"
+          className="flex-1 min-w-0 border border-neutral-300 dark:border-neutral-700 rounded-l-full px-2.5 sm:px-4 py-2 text-sm outline-none focus:border-blue-500 bg-white dark:bg-black group-focus-within:border-blue-500 group-focus-within:pl-10 relative transition-all"
           placeholder="Search"
         />
         <button
