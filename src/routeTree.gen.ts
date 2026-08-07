@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SubscriptionsRouteImport } from './routes/subscriptions'
+import { Route as ShortsRouteImport } from './routes/shorts'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as PlaylistRouteImport } from './routes/playlist'
 import { Route as MusicRouteImport } from './routes/music'
@@ -24,6 +25,11 @@ import { Route as MusicPlaylistRouteImport } from './routes/music.playlist'
 const SubscriptionsRoute = SubscriptionsRouteImport.update({
   id: '/subscriptions',
   path: '/subscriptions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShortsRoute = ShortsRouteImport.update({
+  id: '/shorts',
+  path: '/shorts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SearchRoute = SearchRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
   '/search': typeof SearchRoute
+  '/shorts': typeof ShortsRoute
   '/subscriptions': typeof SubscriptionsRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
   '/search': typeof SearchRoute
+  '/shorts': typeof ShortsRoute
   '/subscriptions': typeof SubscriptionsRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/music': typeof MusicRouteWithChildren
   '/playlist': typeof PlaylistRoute
   '/search': typeof SearchRoute
+  '/shorts': typeof ShortsRoute
   '/subscriptions': typeof SubscriptionsRoute
   '/music/playlist': typeof MusicPlaylistRoute
   '/watch/$id': typeof WatchIdRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/music'
     | '/playlist'
     | '/search'
+    | '/shorts'
     | '/subscriptions'
     | '/music/playlist'
     | '/watch/$id'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/music'
     | '/playlist'
     | '/search'
+    | '/shorts'
     | '/subscriptions'
     | '/music/playlist'
     | '/watch/$id'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/music'
     | '/playlist'
     | '/search'
+    | '/shorts'
     | '/subscriptions'
     | '/music/playlist'
     | '/watch/$id'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   MusicRoute: typeof MusicRouteWithChildren
   PlaylistRoute: typeof PlaylistRoute
   SearchRoute: typeof SearchRoute
+  ShortsRoute: typeof ShortsRoute
   SubscriptionsRoute: typeof SubscriptionsRoute
   WatchIdRoute: typeof WatchIdRoute
 }
@@ -179,6 +192,13 @@ declare module '@tanstack/react-router' {
       path: '/subscriptions'
       fullPath: '/subscriptions'
       preLoaderRoute: typeof SubscriptionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shorts': {
+      id: '/shorts'
+      path: '/shorts'
+      fullPath: '/shorts'
+      preLoaderRoute: typeof ShortsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/search': {
@@ -273,6 +293,7 @@ const rootRouteChildren: RootRouteChildren = {
   MusicRoute: MusicRouteWithChildren,
   PlaylistRoute: PlaylistRoute,
   SearchRoute: SearchRoute,
+  ShortsRoute: ShortsRoute,
   SubscriptionsRoute: SubscriptionsRoute,
   WatchIdRoute: WatchIdRoute,
 }
