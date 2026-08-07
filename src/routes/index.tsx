@@ -71,7 +71,7 @@ function Home() {
       {!hasSignal ? (
         <div className="p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 text-center text-sm text-neutral-500">
           Like some videos or search for something to get personalized recommendations here.{" "}
-          <Link to="/trending" className="text-blue-600">Browse trending</Link> to get started.
+          <Link to="/discover" className="text-blue-600">Browse discover</Link> to get started.
         </div>
       ) : error ? (
         <div className="p-6 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700">
