@@ -111,7 +111,11 @@ export function GlobalVideoPlayer() {
       if (cancelled || !mountRef.current) return;
       if (playerRef.current) {
         try {
-          playerRef.current.loadVideoById?.({ videoId: id, startSeconds: start });
+          playerRef.current.loadVideoById?.({ 
+            videoId: id, 
+            startSeconds: start,
+            suggestedQuality: 'hd720'
+          });
           setTracks([]);
           setCurrentTrack(null);
           return;
@@ -119,7 +123,14 @@ export function GlobalVideoPlayer() {
       }
       playerRef.current = new YT.Player(mountRef.current, {
         videoId: id,
-        playerVars: { autoplay: 1, rel: 0, start, playsinline: 1, fs: 1 },
+        playerVars: { 
+          autoplay: 1, 
+          rel: 0, 
+          start, 
+          playsinline: 1, 
+          fs: 1,
+          disablekb: current.isShort ? 1 : 0
+        },
         events: {
           onReady: (e: any) => {
             e.target.playVideo();
@@ -223,7 +234,10 @@ export function GlobalVideoPlayer() {
   };
 
   const togglePip = async () => {
-    if (current?.isShort) return; // Disable PiP for shorts
+    if (current?.isShort) {
+      console.log("PiP disabled for shorts");
+      return;
+    }
     const w = window as any;
     const wrap = containerRef.current;
     if (!wrap || !w.documentPictureInPicture) return;
