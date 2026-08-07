@@ -86,6 +86,7 @@ function Watch() {
       title: video.title,
       channel: video.channel,
       thumbnail: video.thumbnail,
+      isShort: false,
     });
   }, [video.id, video.title, video.channel, video.thumbnail, openVideo]);
 
