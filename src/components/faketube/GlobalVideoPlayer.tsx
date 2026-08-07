@@ -53,9 +53,6 @@ export function GlobalVideoPlayer() {
   const [miniPos, setMiniPos] = useState<{ left: number; top: number } | null>(null);
   const dragState = useRef<{ dx: number; dy: number; moved: boolean } | null>(null);
 
-  useEffect(() => {
-    setPipSupported(typeof window !== "undefined" && "documentPictureInPicture" in window);
-  }, []);
 
   // Recompute rect from slot in inline mode
   useLayoutEffect(() => {
