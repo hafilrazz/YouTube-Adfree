@@ -1535,3 +1535,85 @@ export const getAudioStream = createServerFn({ method: "GET" })
       throw new Error(`Audio stream unavailable: ${(e as Error).message}`);
     }
   });
+
+// ================== Channel Data ==================
+
+export interface ChannelInfo {
+  id: string;
+  name: string;
+  avatar: string;
+  banner?: string;
+  subscribers?: string;
+  description?: string;
+  videos: Video[];
+  nextPageToken?: string;
+}
+
+export const getChannel = createServerFn({ method: "GET" })
+  .inputValidator((d: { id: string; pageToken?: string }) => ({
+    id: String(d?.id ?? ""),
+    pageToken: d?.pageToken ? String(d.pageToken) : "",
+  }))
+  .handler(async ({ data }): Promise<ChannelInfo> => {
+    if (!data.id) throw new Error("Missing channel id");
+    setResponseHeader("cache-control", "public, max-age=600, s-maxage=1800, stale-while-revalidate=3600");
+
+    try {
+      // Primary: Piped
+      const path = `/channel/${encodeURIComponent(data.id)}`;
+      const res = await piped<{
+        id?: string;
+        name?: string;
+        avatarUrl?: string;
+        bannerUrl?: string;
+        subscriberCount?: number;
+        description?: string;
+        relatedStreams?: PipedItem[];
+        nextpage?: string;
+      }>(path);
+
+      if (res.name) {
+        return {
+          id: data.id,
+          name: res.name,
+          avatar: res.avatarUrl || avatar(res.name),
+          banner: res.bannerUrl || undefined,
+          subscribers: typeof res.subscriberCount === "number" ? formatViews(String(res.subscriberCount)) : undefined,
+          description: stripHtml(res.description ?? ""),
+          videos: (res.relatedStreams ?? []).map(pipedToVideo).filter((v): v is Video => Boolean(v)),
+          nextPageToken: res.nextpage,
+        };
+      }
+    } catch (e) {
+      console.warn("Piped channel failed:", (e as Error).message);
+    }
+
+    try {
+      // Secondary: Invidious
+      const res = await invidious<{
+        author?: string;
+        authorId?: string;
+        authorThumbnails?: { url: string; width: number }[];
+        authorBanners?: { url: string; width: number }[];
+        subCount?: number;
+        description?: string;
+        latestVideos?: InvVideoItem[];
+      }>(`/api/v1/channels/${encodeURIComponent(data.id)}`);
+
+      if (res.author) {
+        return {
+          id: data.id,
+          name: res.author,
+          avatar: invAvatar(res.authorThumbnails, res.author),
+          banner: res.authorBanners?.[0]?.url,
+          subscribers: typeof res.subCount === "number" ? formatViews(String(res.subCount)) : undefined,
+          description: stripHtml(res.description ?? ""),
+          videos: (res.latestVideos ?? []).map(invToVideo).filter((v): v is Video => Boolean(v)),
+        };
+      }
+    } catch (e) {
+      console.warn("Invidious channel failed:", (e as Error).message);
+    }
+
+    throw new Error("Channel not found or API error");
+  });

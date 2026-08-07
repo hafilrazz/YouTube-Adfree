@@ -118,11 +118,13 @@ function Watch() {
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <img src={video.channelAvatar} className="h-10 w-10 rounded-full object-cover" alt="" />
-              <div className="min-w-0">
-                <p className="font-bold text-base line-clamp-1">{video.channel}</p>
-                <p className="text-xs text-neutral-600 dark:text-neutral-400">YouTube channel</p>
-              </div>
+              <Link to="/channel/$id" params={{ id: video.channelId || "" }} className="flex items-center gap-3 group">
+                <img src={video.channelAvatar} className="h-10 w-10 rounded-full object-cover" alt="" />
+                <div className="min-w-0">
+                  <p className="font-bold text-base line-clamp-1 group-hover:text-neutral-700 dark:group-hover:text-neutral-300 transition-colors">{video.channel}</p>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400">YouTube channel</p>
+                </div>
+              </Link>
               <button
                 onClick={() =>
                   subscriptions.toggle({

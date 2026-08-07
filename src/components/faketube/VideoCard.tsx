@@ -21,14 +21,27 @@ export function VideoCard({ video }: { video: Video }) {
 
       </div>
       <div className="mt-3 flex gap-3">
-        <img src={video.channelAvatar} alt={video.channel} className="h-9 w-9 rounded-full shrink-0" />
+        <Link 
+          to="/channel/$id" 
+          params={{ id: video.channelId || "" }} 
+          className="shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <img src={video.channelAvatar} alt={video.channel} className="h-9 w-9 rounded-full object-cover" />
+        </Link>
         <div className="min-w-0">
           <h3 className="text-base font-semibold line-clamp-2 leading-snug">{video.title}</h3>
-          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{video.channel}</p>
+          <Link 
+            to="/channel/$id" 
+            params={{ id: video.channelId || "" }}
+            className="mt-1 text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors block"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {video.channel}
+          </Link>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
             {video.views} views · {video.posted}
           </p>
-
         </div>
       </div>
     </Link>
