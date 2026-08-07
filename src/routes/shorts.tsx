@@ -20,7 +20,7 @@ export const Route = createFileRoute("/shorts")({
 
 function ShortsPage() {
   const shortsFn = useServerFn(getShorts);
-  const { openVideo } = useVideoPlayer();
+  const { openVideo, closeVideo } = useVideoPlayer();
   
   const {
     data,
@@ -35,6 +35,14 @@ function ShortsPage() {
     getNextPageParam: (last) => last?.nextPageToken || undefined,
     staleTime: 5 * 60_000,
   });
+
+  // When leaving the shorts page, close the mini player
+  useEffect(() => {
+    return () => {
+      closeVideo();
+    };
+  }, [closeVideo]);
+
 
   const videos = data?.pages.flatMap(p => p.items) ?? [];
 
@@ -67,16 +75,22 @@ function ShortsPage() {
 function ShortVideoItem({ video, onVisible }: { video: Video; onVisible: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [hasReported, setHasReported] = useState(false);
+  const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !hasReported) {
-          onVisible();
-          setHasReported(true);
+        if (entries[0].isIntersecting) {
+          setIsActive(true);
+          if (!hasReported) {
+            onVisible();
+            setHasReported(true);
+          }
+        } else {
+          setIsActive(false);
         }
       },
-      { threshold: 0.7 }
+      { threshold: 0.6 }
     );
     if (ref.current) observer.observe(ref.current);
     return () => observer.disconnect();
@@ -84,11 +98,24 @@ function ShortVideoItem({ video, onVisible }: { video: Video; onVisible: () => v
 
   return (
     <div ref={ref} className="relative aspect-[9/16] w-full bg-black rounded-2xl overflow-hidden shadow-2xl group">
-      <img 
-        src={video.thumbnail.replace('hqdefault', 'maxresdefault')} 
-        className="absolute inset-0 w-full h-full object-cover opacity-80" 
-        alt=""
-      />
+      {isActive ? (
+        <iframe
+          src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=0&controls=0&loop=1&playlist=${video.id}&rel=0&modestbranding=1`}
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          allow="autoplay; encrypted-media"
+          title={video.title}
+        />
+      ) : (
+        <img 
+          src={video.thumbnail.replace('hqdefault', 'maxresdefault')} 
+          className="absolute inset-0 w-full h-full object-cover opacity-80" 
+          alt=""
+        />
+      )}
+      
+      {/* Overlay to catch clicks and prevent iframe interaction issues */}
+      <div className="absolute inset-0 z-10" />
+
       
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6">
         <h3 className="text-white font-bold text-lg leading-tight mb-2">{video.title}</h3>
