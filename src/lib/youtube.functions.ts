@@ -1235,12 +1235,20 @@ export const getVideosByIds = createServerFn({ method: "GET" })
 // ================== Shorts ==================
 
 export const getShorts = createServerFn({ method: "GET" })
-  .inputValidator((d: { q?: string; pageToken?: string }) => ({
+  .inputValidator((d: { q?: string; pageToken?: string; seed?: number }) => ({
     q: String(d?.q ?? "shorts").slice(0, 80),
     pageToken: d?.pageToken ? String(d.pageToken) : "",
+    seed: typeof d?.seed === "number" ? d.seed : undefined,
   }))
   .handler(async ({ data }): Promise<{ items: Video[]; nextPageToken?: string }> => {
-    setResponseHeader("cache-control", "public, max-age=300, s-maxage=900, stale-while-revalidate=3600");
+    // When a seed is provided, we reduce cache time to ensure refresh works
+    const cacheTime = data.seed ? 0 : 300;
+    setResponseHeader("cache-control", `public, max-age=${cacheTime}, s-maxage=900, stale-while-revalidate=3600`);
+
+    const topics = ["shorts", "trending shorts", "viral shorts", "funny shorts", "gaming shorts", "music shorts"];
+    const randomTopic = data.seed ? topics[Math.floor((data.seed * 10) % topics.length)] : topics[0];
+    const query = data.q === "shorts" ? randomTopic : data.q;
+
 
     // Primary: Piped search, then filter to short-duration videos.
     try {
