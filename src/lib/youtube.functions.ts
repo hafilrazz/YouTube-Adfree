@@ -731,11 +731,13 @@ export const getTrending = createServerFn({ method: "GET" })
 // ================== Search ==================
 
 export const searchYouTube = createServerFn({ method: "GET" })
-  .inputValidator((d: { q: string; limit?: number; pageToken?: string }) => ({
+  .inputValidator((d: { q: string; limit?: number; pageToken?: string; params?: string }) => ({
     q: String(d?.q ?? "").slice(0, 120),
     limit: Math.min(Math.max(Number(d?.limit ?? 20), 1), 50),
     pageToken: d?.pageToken ? String(d.pageToken) : "",
+    params: d?.params ? String(d.params) : "",
   }))
+
   .handler(async ({ data }): Promise<{ items: Video[]; nextPageToken?: string; prevPageToken?: string; quotaExceeded?: boolean }> => {
     if (!data.q.trim()) return { items: [] };
     setResponseHeader("cache-control", "public, max-age=600, s-maxage=1800, stale-while-revalidate=3600");

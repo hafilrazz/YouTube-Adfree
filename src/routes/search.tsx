@@ -91,16 +91,17 @@ function SearchPage() {
               {q ? <>Results for “{q}”</> : "Search"}
             </h1>
           </div>
-          {q && <SearchFilters currentSp={sp} onFilterChange={(newSp) => navigate({ search: (prev) => ({ ...prev, sp: newSp }) })} />}
+          {q && <SearchFilters currentSp={sp} onFilterChange={(newSp) => navigate({ search: (prev: { q: string; sp?: string }) => ({ ...prev, sp: newSp }) })} />}
         </div>
         
         {sp && (
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => navigate({ search: (prev) => ({ ...prev, sp: "" }) })}
+              onClick={() => navigate({ search: (prev: { q: string; sp?: string }) => ({ ...prev, sp: "" }) })}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 rounded-full text-xs font-medium transition-colors"
             >
               Clear filters
+
               <X className="h-3 w-3" />
             </button>
           </div>
