@@ -100,7 +100,7 @@ function ShortVideoItem({ video, onVisible }: { video: Video; onVisible: () => v
     <div ref={ref} className="relative aspect-[9/16] w-full bg-black rounded-2xl overflow-hidden shadow-2xl group">
       {isActive ? (
         <iframe
-          src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=0&controls=0&loop=1&playlist=${video.id}&rel=0&modestbranding=1`}
+          src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=0&controls=0&loop=1&playlist=${video.id}&rel=0&modestbranding=1&disablekb=1&playsinline=1`}
           className="absolute inset-0 w-full h-full pointer-events-none"
           allow="autoplay; encrypted-media"
           title={video.title}

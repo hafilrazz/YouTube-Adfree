@@ -111,7 +111,11 @@ export function GlobalVideoPlayer() {
       if (cancelled || !mountRef.current) return;
       if (playerRef.current) {
         try {
-          playerRef.current.loadVideoById?.({ videoId: id, startSeconds: start });
+          playerRef.current.loadVideoById?.({ 
+            videoId: id, 
+            startSeconds: start,
+            suggestedQuality: 'hd720'
+          });
           setTracks([]);
           setCurrentTrack(null);
           return;
@@ -119,10 +123,30 @@ export function GlobalVideoPlayer() {
       }
       playerRef.current = new YT.Player(mountRef.current, {
         videoId: id,
-        playerVars: { autoplay: 1, rel: 0, start, playsinline: 1, fs: 1 },
+        playerVars: { 
+          autoplay: 1, 
+          rel: 0, 
+          start, 
+          playsinline: 1, 
+          fs: 1,
+          disablekb: current.isShort ? 1 : 0
+        },
         events: {
           onReady: (e: any) => {
             e.target.playVideo();
+            
+            // Force disable PiP on the underlying video element if it's a short
+            if (current.isShort) {
+              try {
+                const iframe = mountRef.current?.querySelector('iframe') || document.querySelector(`iframe[src*="${current.id}"]`);
+                if (iframe) {
+                   // Note: Direct access to iframe video is blocked by CORS usually, 
+                   // but we can try to send a postMessage if YT API supports it or use attribute hints.
+                   // The best way for YT Embed is the disablekb and controls=0 which we already have.
+                }
+              } catch(err) {}
+            }
+
             interval = setInterval(() => {
               const p = playerRef.current;
               if (!p?.getCurrentTime) return;
@@ -223,7 +247,10 @@ export function GlobalVideoPlayer() {
   };
 
   const togglePip = async () => {
-    if (current?.isShort) return; // Disable PiP for shorts
+    if (current?.isShort) {
+      console.log("PiP disabled for shorts");
+      return;
+    }
     const w = window as any;
     const wrap = containerRef.current;
     if (!wrap || !w.documentPictureInPicture) return;
@@ -405,7 +432,7 @@ export function GlobalVideoPlayer() {
         )}
 
         {/* Overlay controls */}
-        <div className="absolute top-2 right-2 z-10 flex gap-1">
+        <div className={`absolute top-2 right-2 z-10 flex gap-1 ${current.isShort ? "hidden" : ""}`}>
           {tracks.length > 0 && (
             <div className="relative">
               <button
@@ -469,7 +496,7 @@ export function GlobalVideoPlayer() {
           )}
         </div>
 
-        {mode === "inline" && (
+        {mode === "inline" && !current.isShort && (
           <div className="absolute bottom-2 right-2 z-10 flex gap-1 md:hidden">
             {pipSupported && !current.isShort && (
               <button
