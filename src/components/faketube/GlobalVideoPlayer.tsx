@@ -241,7 +241,6 @@ export function GlobalVideoPlayer() {
     } catch {}
   };
 
-  const togglePip = async () => {
 
   const miniTotalHeight = MINI_HEIGHT + 44;
 
