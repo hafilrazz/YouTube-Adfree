@@ -454,16 +454,6 @@ export function GlobalVideoPlayer() {
 
         {mode === "inline" && !current.isShort && (
           <div className="absolute bottom-2 right-2 z-10 flex gap-1 md:hidden">
-            {pipSupported && !current.isShort && (
-              <button
-                type="button"
-                onClick={togglePip}
-                className="p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
-                aria-label={isPip ? "Exit PiP" : "Picture-in-picture"}
-              >
-                <PictureInPicture2 className="h-4 w-4" />
-              </button>
-            )}
             <button
               type="button"
               onClick={toggleFullscreen}
