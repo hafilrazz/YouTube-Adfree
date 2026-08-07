@@ -242,45 +242,6 @@ export function GlobalVideoPlayer() {
   };
 
   const togglePip = async () => {
-    if (current?.isShort) {
-      console.log("PiP disabled for shorts");
-      setIsPip(false);
-      return;
-    }
-    const w = window as any;
-    const wrap = containerRef.current;
-    if (!wrap || !w.documentPictureInPicture) return;
-    if (pipWinRef.current && !pipWinRef.current.closed) {
-      pipWinRef.current.close();
-      return;
-    }
-    try {
-      const r = wrap.getBoundingClientRect();
-      const pipWin: Window = await w.documentPictureInPicture.requestWindow({
-        width: Math.round(r.width) || 480,
-        height: Math.round(r.height) || 270,
-      });
-      document.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => {
-        pipWin.document.head.appendChild(node.cloneNode(true));
-      });
-      pipWin.document.body.style.margin = "0";
-      pipWin.document.body.style.background = "#000";
-      const placeholder = document.createElement("div");
-      placeholder.style.cssText = "position:relative;width:100%;height:100%;background:#000;";
-      placeholderRef.current = placeholder;
-      wrap.parentNode?.insertBefore(placeholder, wrap);
-      pipWin.document.body.appendChild(wrap);
-      pipWinRef.current = pipWin;
-      setIsPip(true);
-      pipWin.addEventListener("pagehide", () => {
-        const ph = placeholderRef.current;
-        if (ph && wrap) ph.parentNode?.replaceChild(wrap, ph);
-        placeholderRef.current = null;
-        pipWinRef.current = null;
-        setIsPip(false);
-      });
-    } catch {}
-  };
 
   const miniTotalHeight = MINI_HEIGHT + 44;
 
