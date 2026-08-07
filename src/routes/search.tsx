@@ -155,14 +155,10 @@ function SearchPage() {
 }
 
 function SearchFilters({ currentSp, onFilterChange }: { currentSp: string; onFilterChange: (sp: string) => void }) {
-  const [isOpen, setIsOpen] = (useEffect(() => {}, []), (function useToggle(initial: boolean) {
-    const [v, setV] = (typeof window !== "undefined" ? (window as any).useState : (initial: any) => [initial, (v: any) => v])(initial);
-    return [v, () => setV((prev: any) => !prev)];
-  } as any)(false)); // Simplified state for the moment, let's use standard React
-  
   // Real implementation below
   return <SearchFiltersImpl currentSp={currentSp} onFilterChange={onFilterChange} />;
 }
+
 
 import { useState } from "react";
 
