@@ -21,6 +21,7 @@ export const Route = createFileRoute("/shorts")({
 function ShortsPage() {
   const shortsFn = useServerFn(getShorts);
   const { openVideo, closeVideo } = useVideoPlayer();
+  const [sessionSeed] = useState(() => Math.random());
   
   const {
     data,
@@ -29,12 +30,13 @@ function ShortsPage() {
     isFetchingNextPage,
     isLoading
   } = useInfiniteQuery({
-    queryKey: ["yt-shorts-feed"],
-    queryFn: ({ pageParam }) => shortsFn({ data: { pageToken: pageParam || undefined } }),
+    queryKey: ["yt-shorts-feed", sessionSeed],
+    queryFn: ({ pageParam }) => shortsFn({ data: { pageToken: pageParam || undefined, seed: sessionSeed } }),
     initialPageParam: "" as string,
     getNextPageParam: (last) => last?.nextPageToken || undefined,
-    staleTime: 5 * 60_000,
+    staleTime: 0, // Force refresh on component remount or navigation
   });
+
 
   // When leaving the shorts page, close the mini player
   useEffect(() => {
