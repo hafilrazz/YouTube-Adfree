@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouterState, useNavigate } from "@tanstack/react-router";
-import { X, Maximize2, Minimize2, PictureInPicture2, Captions, Check } from "lucide-react";
+import { X, Maximize2, Minimize2, Captions, Check } from "lucide-react";
 import { useVideoPlayer } from "@/lib/video-player-context";
 import { getProgress, saveProgress } from "@/lib/user-data";
 
@@ -42,13 +42,10 @@ export function GlobalVideoPlayer() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<any>(null);
-  const pipWinRef = useRef<Window | null>(null);
   const placeholderRef = useRef<HTMLDivElement | null>(null);
 
   const [rect, setRect] = useState<Rect | null>(null);
   const [isFs, setIsFs] = useState(false);
-  const [isPip, setIsPip] = useState(false);
-  const [pipSupported, setPipSupported] = useState(false);
   const [tracks, setTracks] = useState<CaptionTrack[]>([]);
   const [currentTrack, setCurrentTrack] = useState<string | null>(null); // languageCode, or null = off
   const [ccMenuOpen, setCcMenuOpen] = useState(false);
@@ -56,9 +53,6 @@ export function GlobalVideoPlayer() {
   const [miniPos, setMiniPos] = useState<{ left: number; top: number } | null>(null);
   const dragState = useRef<{ dx: number; dy: number; moved: boolean } | null>(null);
 
-  useEffect(() => {
-    setPipSupported(typeof window !== "undefined" && "documentPictureInPicture" in window);
-  }, []);
 
   // Recompute rect from slot in inline mode
   useLayoutEffect(() => {
@@ -247,46 +241,6 @@ export function GlobalVideoPlayer() {
     } catch {}
   };
 
-  const togglePip = async () => {
-    if (current?.isShort) {
-      console.log("PiP disabled for shorts");
-      setIsPip(false);
-      return;
-    }
-    const w = window as any;
-    const wrap = containerRef.current;
-    if (!wrap || !w.documentPictureInPicture) return;
-    if (pipWinRef.current && !pipWinRef.current.closed) {
-      pipWinRef.current.close();
-      return;
-    }
-    try {
-      const r = wrap.getBoundingClientRect();
-      const pipWin: Window = await w.documentPictureInPicture.requestWindow({
-        width: Math.round(r.width) || 480,
-        height: Math.round(r.height) || 270,
-      });
-      document.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => {
-        pipWin.document.head.appendChild(node.cloneNode(true));
-      });
-      pipWin.document.body.style.margin = "0";
-      pipWin.document.body.style.background = "#000";
-      const placeholder = document.createElement("div");
-      placeholder.style.cssText = "position:relative;width:100%;height:100%;background:#000;";
-      placeholderRef.current = placeholder;
-      wrap.parentNode?.insertBefore(placeholder, wrap);
-      pipWin.document.body.appendChild(wrap);
-      pipWinRef.current = pipWin;
-      setIsPip(true);
-      pipWin.addEventListener("pagehide", () => {
-        const ph = placeholderRef.current;
-        if (ph && wrap) ph.parentNode?.replaceChild(wrap, ph);
-        placeholderRef.current = null;
-        pipWinRef.current = null;
-        setIsPip(false);
-      });
-    } catch {}
-  };
 
   const miniTotalHeight = MINI_HEIGHT + 44;
 
@@ -500,16 +454,6 @@ export function GlobalVideoPlayer() {
 
         {mode === "inline" && !current.isShort && (
           <div className="absolute bottom-2 right-2 z-10 flex gap-1 md:hidden">
-            {pipSupported && !current.isShort && (
-              <button
-                type="button"
-                onClick={togglePip}
-                className="p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
-                aria-label={isPip ? "Exit PiP" : "Picture-in-picture"}
-              >
-                <PictureInPicture2 className="h-4 w-4" />
-              </button>
-            )}
             <button
               type="button"
               onClick={toggleFullscreen}
