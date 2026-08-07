@@ -432,7 +432,7 @@ export function GlobalVideoPlayer() {
         )}
 
         {/* Overlay controls */}
-        <div className="absolute top-2 right-2 z-10 flex gap-1">
+        <div className={`absolute top-2 right-2 z-10 flex gap-1 ${current.isShort ? "hidden" : ""}`}>
           {tracks.length > 0 && (
             <div className="relative">
               <button

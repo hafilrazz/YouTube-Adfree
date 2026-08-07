@@ -81,6 +81,8 @@ function Watch() {
   useEffect(() => { record(id); }, [id, record]);
 
   useEffect(() => {
+    // If the video title or description contains #shorts or is explicitly vertical, 
+    // we could flag it here too. For now, regular watch page is not a short.
     openVideo({
       id: video.id,
       title: video.title,
