@@ -129,7 +129,8 @@ export function GlobalVideoPlayer() {
           start, 
           playsinline: 1, 
           fs: 1,
-          disablekb: current.isShort ? 1 : 0
+          disablekb: current.isShort ? 1 : 0,
+          controls: current.isShort ? 0 : 1
         },
         events: {
           onReady: (e: any) => {
