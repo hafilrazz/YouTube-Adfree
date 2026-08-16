@@ -42,46 +42,34 @@ jobs:
           # Create directories if they don't exist
           mkdir -p dist/client/assets
 
-          # Create a functional index.html that works for both web and Capacitor
-          # We use a script to find the correct entry point dynamically
+          # Find the actual index JS file
+          ENTRY_JS=$(find dist/client/assets -name "index-*.js" | head -n 1)
+          if [ -z "$ENTRY_JS" ]; then
+            ENTRY_JS=$(find dist/client/assets -name "*.js" | head -n 1)
+          fi
+          
+          ENTRY_FILE=$(basename "$ENTRY_JS")
+          CSS_FILE=$(find dist/client/assets -name "*.css" | head -n 1 | xargs basename)
+
+          echo "Found entry JS: $ENTRY_FILE"
+          echo "Found CSS: $CSS_FILE"
+
+          # Create a functional index.html for Capacitor
           cat <<EOF > dist/client/index.html
           <!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
             <title>YouTube Premium</title>
+            <link rel="stylesheet" href="/assets/$CSS_FILE">
           </head>
           <body>
             <div id="app"></div>
-            <script type="module">
-              // Dynamically find and load the entry script
-              fetch('/assets/manifest.json')
-                .then(r => r.json())
-                .then(manifest => {
-                  const entry = manifest['src/main.tsx'] || Object.values(manifest).find(v => v.isEntry);
-                  if (entry) {
-                    const script = document.createElement('script');
-                    script.type = 'module';
-                    script.src = '/' + entry.file;
-                    document.body.appendChild(script);
-                  }
-                })
-                .catch(() => {
-                  // Fallback: Try to find any JS file that looks like an entry point
-                  const scripts = ['/assets/index.js', '/assets/start.js'];
-                  scripts.forEach(src => {
-                    const script = document.createElement('script');
-                    script.type = 'module';
-                    script.src = src;
-                    document.body.appendChild(script);
-                  });
-                });
-            </script>
+            <script type="module" src="/assets/$ENTRY_FILE"></script>
           </body>
           </html>
           EOF
-
 
       - name: Capacitor Sync
         run: npx cap sync android
@@ -90,6 +78,8 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
+          # Ensure local.properties doesn't interfere
+          rm -f local.properties
           ./gradlew assembleRelease
 
       - name: Upload APK as Release Asset
