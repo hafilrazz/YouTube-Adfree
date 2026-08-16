@@ -3,26 +3,24 @@ name: Build Android APK
 on:
   release:
     types: [created]
-  workflow_dispatch: # Allows manual triggering for testing
+  workflow_dispatch:
 
 jobs:
   build:
     name: Build Android APK
     runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
 
     steps:
       - name: Checkout Source
         uses: actions/checkout@v5
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -31,25 +29,36 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Install Dependencies
+      - name: Install Android command-line tools and SDK components
         run: |
-          set -eo pipefail
-          bun install 2>&1 | tee /tmp/install.log
+          set -euo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT}"
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+          curl -fSL "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip" -o cmdline.zip
+          unzip -q cmdline.zip -d "${ANDROID_SDK_ROOT}/cmdline-tools"
+          mv "${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+          # Accept licenses and install required packages
+          yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses
+          "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
-      - name: Verify Capacitor Shell
-        run: |
-          test -f capacitor-web/index.html
-          grep -q 'https://ytclone2.lovable.app' capacitor.config.ts
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build
 
       - name: Capacitor Sync
-        run: bunx cap sync android
+        run: npx cap sync android
+
+      - name: Prepare local.properties for Gradle
+        run: |
+          echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
 
       - name: Build Android APK
         run: |
           cd android
           chmod +x gradlew
-          rm -f local.properties
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK as Release Asset
         uses: softprops/action-gh-release@v2
