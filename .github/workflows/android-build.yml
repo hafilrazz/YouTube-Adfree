@@ -1,5 +1,4 @@
 name: Build Android APK
-
 on:
   release:
     types: [created]
@@ -9,7 +8,6 @@ jobs:
   build:
     name: Build Android APK
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Source
         uses: actions/checkout@v5
@@ -19,6 +17,9 @@ jobs:
         with:
           node-version: 22
           cache: 'npm'
+          # Requires package-lock.json (or npm-shrinkwrap.json) committed at repo root.
+          # If you don't want to commit a lock file, remove this cache line and use
+          # `npm install` instead of `npm ci` below.
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -30,13 +31,11 @@ jobs:
       - name: Install Android command-line tools and SDK components
         run: |
           set -euo pipefail
-          # Use the runner-provided temp path
           export ANDROID_SDK_ROOT="${RUNNER_TEMP}/android-sdk"
           mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
           curl -fSL "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip" -o cmdline.zip
           unzip -q cmdline.zip -d "${ANDROID_SDK_ROOT}/cmdline-tools"
           mv "${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
-          # Accept licenses and install required packages
           yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses
           "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
@@ -51,15 +50,55 @@ jobs:
 
       - name: Prepare local.properties for Gradle
         run: |
-          # Use RUNNER_TEMP to point Gradle at the SDK installed above
           echo "sdk.dir=${RUNNER_TEMP}/android-sdk" > android/local.properties
 
+      # --- Optional: signing setup ---------------------------------------
+      # Only runs if the KEYSTORE_BASE64 secret is set. If you don't add
+      # signing secrets, this step is skipped and the build stays unsigned
+      # (app-release-unsigned.apk), same as before.
+      #
+      # Required repo secrets if you want a signed, installable APK:
+      #   KEYSTORE_BASE64      - base64 of your .jks/.keystore file
+      #   KEYSTORE_PASSWORD    - keystore password
+      #   KEY_ALIAS            - key alias
+      #   KEY_PASSWORD         - key password
+      #
+      # You also need signingConfigs wired up in android/app/build.gradle,
+      # e.g.:
+      #   signingConfigs {
+      #     release {
+      #       storeFile file(System.getenv("KEYSTORE_PATH") ?: "release.keystore")
+      #       storePassword System.getenv("KEYSTORE_PASSWORD")
+      #       keyAlias System.getenv("KEY_ALIAS")
+      #       keyPassword System.getenv("KEY_PASSWORD")
+      #     }
+      #   }
+      #   buildTypes {
+      #     release {
+      #       signingConfig signingConfigs.release
+      #       ...
+      #     }
+      #   }
+      - name: Decode keystore
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+
       - name: Build Android APK
+        env:
+          KEYSTORE_PATH: android/app/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
 
+      # Adjust the filename below to app-release.apk if/when you wire up
+      # signing in build.gradle — a signed build produces that filename
+      # instead of app-release-unsigned.apk.
       - name: Upload APK as Release Asset
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
@@ -69,7 +108,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload APK as Artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: app-release-unsigned
           path: android/app/build/outputs/apk/release/app-release-unsigned.apk
