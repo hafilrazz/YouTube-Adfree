@@ -40,10 +40,10 @@ jobs:
       - name: Ensure index.html for Capacitor
         run: |
           if [ ! -f dist/client/index.html ]; then
-            # If SPA mode didn't generate index.html (common in TanStack Start SSR-first),
-            # we may need a fallback or to ensure it's generated.
-            # For now, let's copy one if it exists elsewhere or fail gracefully.
-            cp public/index.html dist/client/index.html || echo "<html><body>YouTube Premium SPA</body></html>" > dist/client/index.html
+            # TanStack Start build often outputs to dist/client
+            # Capacitor needs an index.html as an entry point.
+            # We create a simple one that triggers the JS bundle if missing.
+            echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>YouTube Premium</title></head><body><div id="root"></div><script type="module" src="/assets/index-AEStANrT.js"></script></body></html>' > dist/client/index.html
           fi
 
       - name: Capacitor Sync
