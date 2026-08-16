@@ -51,7 +51,7 @@ jobs:
 
       - name: Prepare local.properties for Gradle
         run: |
-          # Write the sdk.dir using the runner-provided temp path
+          # Use RUNNER_TEMP to point Gradle at the SDK installed above
           echo "sdk.dir=${RUNNER_TEMP}/android-sdk" > android/local.properties
 
       - name: Build Android APK
