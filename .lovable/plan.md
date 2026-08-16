@@ -1,30 +1,31 @@
-# Android APK Build Implementation
+# Android APK Build via Capacitor
 
-This plan outlines the steps to enable a native Android APK build using Capacitor. Since direct APK compilation requires Android Studio on a local machine, this process sets up the project structure so the user can run the final build locally.
+This plan explains how to generate an Android APK. Since this is a React/Web project (TanStack Start), we use **Capacitor** to wrap the web app into a native Android container.
+
+**Flutter** is not applicable here because the app is already built using React and TypeScript. Rewriting the entire application in Dart/Flutter would be a complete rebuild from scratch.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> APK generation requires **Android Studio** and **Java (JDK)** installed on your local computer. I will configure the project so you can simply run `npx cap build android` on your machine to get the APK.
+> Generating the final `.apk` file requires **Android Studio** and **Java (JDK)** installed on your local computer. I will set up the configuration so you can easily build it on your machine.
 
 ## Proposed Changes
 
 ### Build Configuration
-- Add `@capacitor/core`, `@capacitor/cli`, and `@capacitor/android` dependencies.
-- Initialize Capacitor configuration (`capacitor.config.ts`).
-- Configure the `webDir` to match TanStack Start's build output (`.output/public`).
+- Install `@capacitor/core`, `@capacitor/cli`, and `@capacitor/android`.
+- Create `capacitor.config.ts` pointing to the web build output (`.output/public`).
+- Update `package.json` with mobile build scripts.
 
 ### Android Integration
-- Add the Android platform folder (`npx cap add android`).
-- Ensure the PWA icons and metadata are mapped to native Android resources.
-- Update `package.json` with convenience scripts for mobile building.
+- Initialize the Android project structure.
+- Map PWA icons to Android resources.
 
-### Documentation
-- Provide a clear, step-by-step guide on how to perform the local build.
+### Local Build Instructions
+- Provide a guide to run the local compilation once the project is synced to your computer.
 
 ## Technical Details
 
-### 1. Dependency Addition
+### 1. Dependencies
 ```bash
 bun add @capacitor/core @capacitor/android
 bun add -D @capacitor/cli
@@ -47,7 +48,6 @@ export default config;
 ```
 
 ### 3. Build Workflow
-1. Run `bun run build` to generate the production web build.
-2. Run `npx cap sync` to copy web assets to the Android project.
-3. Open in Android Studio via `npx cap open android`.
-4. Build the signed APK/Bundle in Android Studio.
+1. `npm run build` (Generates the web files).
+2. `npx cap sync` (Copies web files to Android).
+3. `npx cap open android` (Opens Android Studio to build the APK).
