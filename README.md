@@ -38,7 +38,7 @@ This is the recommended way if you don't have Android Studio:
 
 For a detailed guide on cloud builds, see `CLOUD_BUILD_GUIDE.md`.
 
-### Local Generation
+### Local Generation (Requires Android Studio)
 If you want to build the app on your own computer:
 
 #### Prerequisites
