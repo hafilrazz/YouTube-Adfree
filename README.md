@@ -25,18 +25,43 @@ npm install
 npm run dev
 ```
 
-## Android Build
+## Android App Generation
 
-This project is configured with **Capacitor** for Android support.
+This project uses **Capacitor** to transform the web application into a native Android app.
 
-### GitHub Actions (Automatic)
-Creating a new Release on GitHub will automatically trigger the `Build Android APK` workflow, which generates and attaches an unsigned release APK to your release.
+### Automated Builds (GitHub Actions)
+The easiest way to generate an APK is to use the integrated GitHub Actions:
+1. Push your code to a GitHub repository.
+2. Go to the **Releases** section and create a new release.
+3. The `Build Android APK` workflow will automatically start.
+4. Once finished, the `app-release-unsigned.apk` will be attached to your release assets.
 
-### Local Build
-To build locally, you need Android Studio installed:
-1. Build the web app: `npm run build`
-2. Sync Capacitor: `npx cap sync android`
-3. Open in Android Studio: `npx cap open android`
+### Local Generation
+If you want to build the app on your own computer:
+
+#### Prerequisites
+- **Android Studio**: Installed and configured with Android SDK.
+- **Java 17**: Required for Gradle builds.
+- **Node.js**: Version 20 or higher.
+
+#### Steps
+1. **Prepare the web build**:
+   ```bash
+   npm run build
+   ```
+2. **Sync with Android project**:
+   ```bash
+   npx cap sync android
+   ```
+3. **Open in Android Studio**:
+   ```bash
+   npx cap open android
+   ```
+4. **Generate APK**:
+   In Android Studio, go to `Build` > `Build Bundle(s) / APK(s)` > `Build APK(s)`.
+   The generated file will be located at `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+For a more detailed guide including signing for the Play Store, see `apk-build-guide.md`.
 
 ## Tech Stack
 
