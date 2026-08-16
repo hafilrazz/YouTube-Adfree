@@ -29,14 +29,16 @@ npm run dev
 
 This project uses **Capacitor** to transform the web application into a native Android app.
 
-### Automated Builds (GitHub Actions)
-The easiest way to generate an APK is to use the integrated GitHub Actions:
+### GitHub Actions (No Android Studio Required)
+This is the recommended way if you don't have Android Studio:
 1. Push your code to a GitHub repository.
-2. Go to the **Releases** section and create a new release.
-3. The `Build Android APK` workflow will automatically start.
-4. Once finished, the `app-release-unsigned.apk` will be attached to your release assets.
+2. Create a new **Release** on GitHub.
+3. The `Build Android APK` workflow will automatically generate the file.
+4. Download the `app-release-unsigned.apk` from the release assets.
 
-### Local Generation
+For a detailed guide on cloud builds, see `CLOUD_BUILD_GUIDE.md`.
+
+### Local Generation (Requires Android Studio)
 If you want to build the app on your own computer:
 
 #### Prerequisites
