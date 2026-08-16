@@ -29,15 +29,19 @@ jobs:
           cache: 'gradle'
 
       - name: Install Android command-line tools and SDK components
-        run: |
-          set -euo pipefail
-          export ANDROID_SDK_ROOT="${RUNNER_TEMP}/android-sdk"
-          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+       run: |
+        set -euo pipefail
+        export ANDROID_SDK_ROOT="${RUNNER_TEMP}/android-sdk"
+        mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+
           curl -fSL "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip" -o cmdline.zip
-          unzip -q cmdline.zip -d "${ANDROID_SDK_ROOT}/cmdline-tools"
-          mv "${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
-          yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses
-          "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+        unzip -q cmdline.zip -d "${ANDROID_SDK_ROOT}/cmdline-tools"
+        mv "${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+
+        export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
+
+        sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+        yes | sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" --licenses
 
       - name: Install Node dependencies
         run: npm ci
