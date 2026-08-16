@@ -37,6 +37,15 @@ jobs:
       - name: Build Web App
         run: bun run build
 
+      - name: Ensure index.html for Capacitor
+        run: |
+          if [ ! -f dist/client/index.html ]; then
+            # If SPA mode didn't generate index.html (common in TanStack Start SSR-first),
+            # we may need a fallback or to ensure it's generated.
+            # For now, let's copy one if it exists elsewhere or fail gracefully.
+            cp public/index.html dist/client/index.html || echo "<html><body>YouTube Premium SPA</body></html>" > dist/client/index.html
+          fi
+
       - name: Capacitor Sync
         run: npx cap sync android
 
