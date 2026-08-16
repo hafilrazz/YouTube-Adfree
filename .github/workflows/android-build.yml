@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   release:
     types: [created]
-  workflow_dispatch: # Allows manual triggering for testing
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,55 +12,53 @@ jobs:
 
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '17'
           cache: 'gradle'
 
-      - name: Install Dependencies
-        run: bun install
-
-      - name: Build Web App
-        run: bun run build
-
-      - name: Ensure index.html for Capacitor
+      - name: Install Android command-line tools and SDK components
         run: |
-          # The user mentioned .output/public/index.html was missing in their logs.
-          # TanStack Start normally generates dist/client for the browser assets.
-          # We'll ensure dist/client has the index.html Capacitor needs.
-          if [ ! -f dist/client/index.html ]; then
-            # Find the main entry script - in TanStack Start it is usually assets/index-*.js or assets/start-*.js
-            ENTRY_JS=$(find dist/client/assets -name "index-*.js" -o -name "start-*.js" | head -n 1)
-            if [ -z "$ENTRY_JS" ]; then
-              echo "Error: Could not find entry JS file in dist/client/assets"
-              exit 1
-            fi
-            ENTRY_FILE=$(basename $ENTRY_JS)
-            echo "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>YouTube Premium</title></head><body><div id=\"app\"></div><script type=\"module\" src=\"/assets/$ENTRY_FILE\"></script></body></html>" > dist/client/index.html
-          fi
+          set -euo pipefail
+          # Use the runner-provided temp path
+          export ANDROID_SDK_ROOT="${RUNNER_TEMP}/android-sdk"
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+          curl -fSL "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip" -o cmdline.zip
+          unzip -q cmdline.zip -d "${ANDROID_SDK_ROOT}/cmdline-tools"
+          mv "${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+          # Accept licenses and install required packages
+          yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses
+          "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build
 
       - name: Capacitor Sync
         run: npx cap sync android
+
+      - name: Prepare local.properties for Gradle
+        run: |
+          # Use RUNNER_TEMP to point Gradle at the SDK installed above
+          echo "sdk.dir=${RUNNER_TEMP}/android-sdk" > android/local.properties
 
       - name: Build Android APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK as Release Asset
         uses: softprops/action-gh-release@v2
@@ -71,7 +69,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload APK as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: app-release-unsigned
           path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error

@@ -3,9 +3,11 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.faketube.app',
   appName: 'YouTube Premium',
-  webDir: 'dist/client',
+  webDir: 'capacitor-web',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    url: 'https://ytclone2.lovable.app',
+    cleartext: false,
   }
 };
 
