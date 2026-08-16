@@ -39,34 +39,99 @@ jobs:
 
       - name: Ensure index.html for Capacitor
         run: |
-          # Create directories if they don't exist
-          mkdir -p dist/client/assets
+          set -euo pipefail
 
-          # Find the actual index JS file
-          ENTRY_JS=$(find dist/client/assets -name "index-*.js" | head -n 1)
-          if [ -z "$ENTRY_JS" ]; then
-            ENTRY_JS=$(find dist/client/assets -name "*.js" | head -n 1)
+          WEB_DIR="dist/client"
+          mkdir -p "$WEB_DIR"
+
+          debug_dist() {
+            echo "---- Debug listing under dist/ ----"
+            if [ -d dist ]; then
+              find dist -maxdepth 4 -type f | sort || true
+            else
+              echo "dist/ does not exist"
+            fi
+            echo "---- End debug listing ----"
+          }
+
+          find_bundle() {
+            local search_dir="$1"
+            local pattern="$2"
+            find "$search_dir" -type f -name "$pattern" ! -name "*.map" | sort | head -n 1
+          }
+
+          ENTRY_JS=""
+          CSS_PATH=""
+          ASSET_ROOT=""
+
+          for candidate_dir in "$WEB_DIR/assets" "$WEB_DIR" "dist/assets" "dist"; do
+            if [ ! -d "$candidate_dir" ]; then
+              continue
+            fi
+
+            js_candidate=$(find_bundle "$candidate_dir" "index-*.js")
+            if [ -z "$js_candidate" ]; then
+              js_candidate=$(find_bundle "$candidate_dir" "*.js")
+            fi
+            css_candidate=$(find_bundle "$candidate_dir" "*.css")
+
+            if [ -n "$js_candidate" ] && [ -n "$css_candidate" ]; then
+              ENTRY_JS="$js_candidate"
+              CSS_PATH="$css_candidate"
+              ASSET_ROOT="$candidate_dir"
+              break
+            fi
+          done
+
+          if [ -z "$ENTRY_JS" ] || [ -z "$CSS_PATH" ]; then
+            echo "::error::Could not find both JavaScript and CSS build assets under dist/. Ensure 'bun run build' produced client files."
+            debug_dist
+            exit 1
           fi
-          
-          ENTRY_FILE=$(basename "$ENTRY_JS")
-          CSS_FILE=$(find dist/client/assets -name "*.css" | head -n 1 | xargs basename)
 
-          echo "Found entry JS: $ENTRY_FILE"
-          echo "Found CSS: $CSS_FILE"
+          if [[ "$ENTRY_JS" != "$WEB_DIR/"* ]] || [[ "$CSS_PATH" != "$WEB_DIR/"* ]]; then
+            echo "Detected assets outside $WEB_DIR. Mirroring $ASSET_ROOT into $WEB_DIR/assets for Capacitor."
+            mkdir -p "$WEB_DIR/assets"
+            cp -R "$ASSET_ROOT"/. "$WEB_DIR/assets/"
+            ENTRY_JS="$WEB_DIR/assets/$(basename "$ENTRY_JS")"
+            CSS_PATH="$WEB_DIR/assets/$(basename "$CSS_PATH")"
+          fi
+
+          ENTRY_FILE=$(basename "$ENTRY_JS")
+          CSS_FILE=$(basename "$CSS_PATH")
+
+          ENTRY_REL_DIR=$(dirname "${ENTRY_JS#$WEB_DIR/}")
+          CSS_REL_DIR=$(dirname "${CSS_PATH#$WEB_DIR/}")
+
+          if [ "$ENTRY_REL_DIR" = "." ]; then
+            ENTRY_SRC="/$ENTRY_FILE"
+          else
+            ENTRY_SRC="/$ENTRY_REL_DIR/$ENTRY_FILE"
+          fi
+
+          if [ "$CSS_REL_DIR" = "." ]; then
+            CSS_HREF="/$CSS_FILE"
+          else
+            CSS_HREF="/$CSS_REL_DIR/$CSS_FILE"
+          fi
+
+          echo "Using asset root: $ASSET_ROOT"
+          echo "Found entry JS: $ENTRY_JS"
+          echo "Found CSS: $CSS_PATH"
 
           # Create a functional index.html for Capacitor
-          cat <<EOF > dist/client/index.html
+          cat <<EOF > "$WEB_DIR/index.html"
           <!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
             <title>YouTube Premium</title>
-            <link rel="stylesheet" href="/assets/$CSS_FILE">
+            <link rel="stylesheet" href="$CSS_HREF">
           </head>
           <body>
             <div id="app"></div>
-            <script type="module" src="/assets/$ENTRY_FILE"></script>
+            <script type="module" src="$ENTRY_SRC"></script>
           </body>
           </html>
           EOF
