@@ -25,7 +25,7 @@ jobs:
           node-version: 22
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -35,16 +35,17 @@ jobs:
         run: bun install
 
       - name: Build Web App
-        run: bun run build
+        run: |
+          bun run build
+          # Final check to ensure directory exists for artifact upload
+          mkdir -p dist/client
 
       - name: List dist tree
-        if: always()
         run: |
           echo "---- dist tree ----"
           find dist -maxdepth 5 | sort || echo "dist/ missing"
 
       - name: Upload dist/client for inspection
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dist-client
@@ -53,7 +54,6 @@ jobs:
           include-hidden-files: true
 
       - name: Upload full dist for inspection
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dist-full
@@ -76,15 +76,18 @@ jobs:
 
           # Find entry assets
           # We look for the main JS and CSS bundles
-          ENTRY_JS=$(find "$WEB_DIR" -type f -name "index-*.js" ! -name "*.map" | sort | head -n 1)
+          ENTRY_JS=$(find "$WEB_DIR/assets" -type f -name "index-*.js" ! -name "*.map" | sort | head -n 1)
           if [ -z "$ENTRY_JS" ]; then
-            ENTRY_JS=$(find "$WEB_DIR" -type f -name "*.js" ! -name "*.map" | sort | head -n 1)
+            ENTRY_JS=$(find "$WEB_DIR/assets" -type f -name "*.js" ! -name "*.map" | sort | head -n 1)
           fi
           
-          CSS_PATH=$(find "$WEB_DIR" -type f -name "*.css" ! -name "*.map" | sort | head -n 1)
+          CSS_PATH=$(find "$WEB_DIR/assets" -type f -name "styles-*.css" ! -name "*.map" | sort | head -n 1)
+          if [ -z "$CSS_PATH" ]; then
+            CSS_PATH=$(find "$WEB_DIR/assets" -type f -name "*.css" ! -name "*.map" | sort | head -n 1)
+          fi
 
           if [ -z "$ENTRY_JS" ] || [ -z "$CSS_PATH" ]; then
-            echo "::error::Could not find both JavaScript and CSS build assets under $WEB_DIR. Listing dist for debugging:"
+            echo "::error::Could not find build assets in $WEB_DIR/assets"
             find dist -maxdepth 4 || true
             exit 1
           fi
