@@ -40,86 +40,38 @@ jobs:
       - name: Ensure index.html for Capacitor
         run: |
           set -euo pipefail
-
+          
+          # In TanStack Start v1, the browser assets are in dist/client
           WEB_DIR="dist/client"
           mkdir -p "$WEB_DIR"
+          
+          echo "Checking directory: $WEB_DIR"
+          ls -R "$WEB_DIR" || echo "Directory $WEB_DIR not found!"
 
-          debug_dist() {
-            echo "---- Debug listing under dist/ ----"
-            if [ -d dist ]; then
-              find dist -maxdepth 4 -type f | sort || true
-            else
-              echo "dist/ does not exist"
-            fi
-            echo "---- End debug listing ----"
-          }
-
-          find_bundle() {
-            local search_dir="$1"
-            local pattern="$2"
-            find "$search_dir" -type f -name "$pattern" ! -name "*.map" | sort | head -n 1
-          }
-
-          ENTRY_JS=""
-          CSS_PATH=""
-          ASSET_ROOT=""
-
-          for candidate_dir in "$WEB_DIR/assets" "$WEB_DIR" "dist/assets" "dist"; do
-            if [ ! -d "$candidate_dir" ]; then
-              continue
-            fi
-
-            js_candidate=$(find_bundle "$candidate_dir" "index-*.js")
-            if [ -z "$js_candidate" ]; then
-              js_candidate=$(find_bundle "$candidate_dir" "*.js")
-            fi
-            css_candidate=$(find_bundle "$candidate_dir" "*.css")
-
-            if [ -n "$js_candidate" ] && [ -n "$css_candidate" ]; then
-              ENTRY_JS="$js_candidate"
-              CSS_PATH="$css_candidate"
-              ASSET_ROOT="$candidate_dir"
-              break
-            fi
-          done
+          # Find entry assets
+          # We look for the main JS and CSS bundles
+          ENTRY_JS=$(find "$WEB_DIR" -type f -name "index-*.js" ! -name "*.map" | sort | head -n 1)
+          if [ -z "$ENTRY_JS" ]; then
+            ENTRY_JS=$(find "$WEB_DIR" -type f -name "*.js" ! -name "*.map" | sort | head -n 1)
+          fi
+          
+          CSS_PATH=$(find "$WEB_DIR" -type f -name "*.css" ! -name "*.map" | sort | head -n 1)
 
           if [ -z "$ENTRY_JS" ] || [ -z "$CSS_PATH" ]; then
-            echo "::error::Could not find both JavaScript and CSS build assets under dist/. Ensure 'bun run build' produced client files."
-            debug_dist
+            echo "::error::Could not find both JavaScript and CSS build assets under $WEB_DIR. Listing dist for debugging:"
+            find dist -maxdepth 4 || true
             exit 1
           fi
 
-          if [[ "$ENTRY_JS" != "$WEB_DIR/"* ]] || [[ "$CSS_PATH" != "$WEB_DIR/"* ]]; then
-            echo "Detected assets outside $WEB_DIR. Mirroring $ASSET_ROOT into $WEB_DIR/assets for Capacitor."
-            mkdir -p "$WEB_DIR/assets"
-            cp -R "$ASSET_ROOT"/. "$WEB_DIR/assets/"
-            ENTRY_JS="$WEB_DIR/assets/$(basename "$ENTRY_JS")"
-            CSS_PATH="$WEB_DIR/assets/$(basename "$CSS_PATH")"
-          fi
+          # Get relative paths for index.html
+          # Strip the WEB_DIR prefix to get the relative path within the web root
+          ENTRY_REL="/${ENTRY_JS#$WEB_DIR/}"
+          CSS_REL="/${CSS_PATH#$WEB_DIR/}"
 
-          ENTRY_FILE=$(basename "$ENTRY_JS")
-          CSS_FILE=$(basename "$CSS_PATH")
+          echo "Using Entry JS: $ENTRY_REL"
+          echo "Using CSS: $CSS_REL"
 
-          ENTRY_REL_DIR=$(dirname "${ENTRY_JS#$WEB_DIR/}")
-          CSS_REL_DIR=$(dirname "${CSS_PATH#$WEB_DIR/}")
-
-          if [ "$ENTRY_REL_DIR" = "." ]; then
-            ENTRY_SRC="/$ENTRY_FILE"
-          else
-            ENTRY_SRC="/$ENTRY_REL_DIR/$ENTRY_FILE"
-          fi
-
-          if [ "$CSS_REL_DIR" = "." ]; then
-            CSS_HREF="/$CSS_FILE"
-          else
-            CSS_HREF="/$CSS_REL_DIR/$CSS_FILE"
-          fi
-
-          echo "Using asset root: $ASSET_ROOT"
-          echo "Found entry JS: $ENTRY_JS"
-          echo "Found CSS: $CSS_PATH"
-
-          # Create a functional index.html for Capacitor
+          # Create index.html
           cat <<EOF > "$WEB_DIR/index.html"
           <!DOCTYPE html>
           <html lang="en">
@@ -127,11 +79,11 @@ jobs:
             <meta charset="UTF-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
             <title>YouTube Premium</title>
-            <link rel="stylesheet" href="$CSS_HREF">
+            <link rel="stylesheet" href="$CSS_REL">
           </head>
           <body>
             <div id="app"></div>
-            <script type="module" src="$ENTRY_SRC"></script>
+            <script type="module" src="$ENTRY_REL"></script>
           </body>
           </html>
           EOF
