@@ -39,22 +39,18 @@ jobs:
 
       - name: Ensure index.html for Capacitor
         run: |
-          # TanStack Start/Nitro writes browser assets to .output/public.
-          # Capacitor expects files in webDir (dist/client), so mirror them when needed.
-          if [ -d .output/public ]; then
-            mkdir -p dist/client
-            cp -a .output/public/. dist/client/
-          fi
-
+          # The user mentioned .output/public/index.html was missing in their logs.
+          # TanStack Start normally generates dist/client for the browser assets.
+          # We'll ensure dist/client has the index.html Capacitor needs.
           if [ ! -f dist/client/index.html ]; then
-            # Find any built JS entry and wire a minimal index.html for Capacitor.
-            ENTRY_JS=$(find dist/client -type f -name "*.js" | head -n 1 || true)
+            # Find the main entry script - in TanStack Start it is usually assets/index-*.js or assets/start-*.js
+            ENTRY_JS=$(find dist/client/assets -name "index-*.js" -o -name "start-*.js" | head -n 1)
             if [ -z "$ENTRY_JS" ]; then
-              echo "Error: Could not find any JS bundle in dist/client after build"
+              echo "Error: Could not find entry JS file in dist/client/assets"
               exit 1
             fi
-            ENTRY_PATH="/${ENTRY_JS#dist/client/}"
-            echo "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>YouTube Premium</title></head><body><div id=\"app\"></div><script type=\"module\" src=\"$ENTRY_PATH\"></script></body></html>" > dist/client/index.html
+            ENTRY_FILE=$(basename $ENTRY_JS)
+            echo "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>YouTube Premium</title></head><body><div id=\"app\"></div><script type=\"module\" src=\"/assets/$ENTRY_FILE\"></script></body></html>" > dist/client/index.html
           fi
 
       - name: Capacitor Sync
