@@ -1,53 +1,39 @@
-# Android APK Build via Capacitor
+# GitHub Actions APK Build Plan
 
-This plan explains how to generate an Android APK. Since this is a React/Web project (TanStack Start), we use **Capacitor** to wrap the web app into a native Android container.
-
-**Flutter** is not applicable here because the app is already built using React and TypeScript. Rewriting the entire application in Dart/Flutter would be a complete rebuild from scratch.
-
-## User Review Required
-
-> [!IMPORTANT]
-> Generating the final `.apk` file requires **Android Studio** and **Java (JDK)** installed on your local computer. I will set up the configuration so you can easily build it on your machine.
+This plan sets up a GitHub Actions workflow to automatically build and release an Android APK whenever you create a new release on GitHub.
 
 ## Proposed Changes
 
-### Build Configuration
-- Install `@capacitor/core`, `@capacitor/cli`, and `@capacitor/android`.
-- Create `capacitor.config.ts` pointing to the web build output (`.output/public`).
-- Update `package.json` with mobile build scripts.
+### GitHub Actions Workflow
+- Create a new workflow file `.github/workflows/android-build.yml`.
+- The workflow will:
+  - Trigger on every `release` (specifically when a release is created).
+  - Use an Ubuntu runner.
+  - Set up Node.js and Java (JDK 17).
+  - Install dependencies.
+  - Run the production build of the web app (`npm run build`).
+  - Sync Capacitor with the Android project (`npx cap sync`).
+  - Build the Android APK using Gradle (`./gradlew assembleRelease`).
+  - Upload the generated APK as a release asset.
 
-### Android Integration
-- Initialize the Android project structure.
-- Map PWA icons to Android resources.
-
-### Local Build Instructions
-- Provide a guide to run the local compilation once the project is synced to your computer.
+### Project Configuration
+- Ensure the `webDir` in `capacitor.config.ts` correctly points to the build output.
 
 ## Technical Details
 
-### 1. Dependencies
-```bash
-bun add @capacitor/core @capacitor/android
-bun add -D @capacitor/cli
-```
+### Workflow Steps
+1. **Checkout**: Pull the code.
+2. **Setup Node**: Install Node.js.
+3. **Setup Java**: Install JDK 17 required for Android builds.
+4. **Install Dependencies**: `npm install`.
+5. **Web Build**: `npm run build`.
+6. **Capacitor Sync**: `npx cap sync android`.
+7. **Gradle Build**: `cd android && ./gradlew assembleRelease`.
+8. **Release Asset**: Use `softprops/action-gh-release` to attach the APK to the release.
 
-### 2. Capacitor Config (`capacitor.config.ts`)
-```typescript
-import { CapacitorConfig } from '@capacitor/cli';
+### Requirements
+- You will need to push this code to a GitHub repository.
+- To create a signed APK, you would eventually need to add `ANDROID_KEYSTORE` secrets to your GitHub repo, but this initial setup will generate a standard (un-signed) release APK which can be tested.
 
-const config: CapacitorConfig = {
-  appId: 'com.faketube.app',
-  appName: 'YouTube',
-  webDir: '.output/public',
-  server: {
-    androidScheme: 'https'
-  }
-};
-
-export default config;
-```
-
-### 3. Build Workflow
-1. `npm run build` (Generates the web files).
-2. `npx cap sync` (Copies web files to Android).
-3. `npx cap open android` (Opens Android Studio to build the APK).
+## Note on Signing
+The generated APK will be an unsigned release APK. For Play Store distribution, a signing step is required, but for direct installation on most devices, this is a sufficient starting point.
