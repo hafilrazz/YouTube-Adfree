@@ -17,9 +17,7 @@ jobs:
         with:
           node-version: 22
           cache: 'npm'
-          # Requires package-lock.json (or npm-shrinkwrap.json) committed at repo root.
-          # If you don't want to commit a lock file, remove this cache line and use
-          # `npm install` instead of `npm ci` below.
+          # Relies on package-lock.json committed at repo root.
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -29,19 +27,33 @@ jobs:
           cache: 'gradle'
 
       - name: Install Android command-line tools and SDK components
-       run: |
-        set -euo pipefail
-        export ANDROID_SDK_ROOT="${RUNNER_TEMP}/android-sdk"
-        mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
-
+        run: |
+          set -euo pipefail
+          export ANDROID_SDK_ROOT="${RUNNER_TEMP}/android-sdk"
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
           curl -fSL "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip" -o cmdline.zip
-        unzip -q cmdline.zip -d "${ANDROID_SDK_ROOT}/cmdline-tools"
-        mv "${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+          unzip -q cmdline.zip -d "${ANDROID_SDK_ROOT}/cmdline-tools"
+          mv "${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
 
-        export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
+          # Licenses must be accepted before sdkmanager will install any
+          # package that needs them - do not reorder this before install.
+          #
+          # pipefail is disabled for this one line on purpose: sdkmanager
+          # exits 0 once it has processed all licenses, but the still-running
+          # `yes` process gets SIGPIPE when sdkmanager stops reading stdin.
+          # Under pipefail that abnormal `yes` exit is what fails the
+          # pipeline, even though licenses were accepted successfully.
+          set +o pipefail
+          yes | sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" --licenses
+          set -o pipefail
 
-        sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-        yes | sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" --licenses
+          sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+      - name: Prepare local.properties for Gradle
+        run: |
+          mkdir -p android
+          echo "sdk.dir=${RUNNER_TEMP}/android-sdk" > android/local.properties
 
       - name: Install Node dependencies
         run: npm ci
@@ -51,10 +63,6 @@ jobs:
 
       - name: Capacitor Sync
         run: npx cap sync android
-
-      - name: Prepare local.properties for Gradle
-        run: |
-          echo "sdk.dir=${RUNNER_TEMP}/android-sdk" > android/local.properties
 
       # --- Optional: signing setup ---------------------------------------
       # Only runs if the KEYSTORE_BASE64 secret is set. If you don't add
