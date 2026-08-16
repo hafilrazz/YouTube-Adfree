@@ -37,6 +37,14 @@ jobs:
       - name: Build Web App
         run: bun run build
 
+      - name: Ensure index.html for Capacitor
+        run: |
+          if [ ! -f dist/client/index.html ]; then
+            # Find the main entry script dynamically
+            ENTRY_JS=$(ls dist/client/assets/index-*.js | head -n 1 | xargs basename)
+            echo "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>YouTube Premium</title></head><body><div id=\"app\"></div><script type=\"module\" src=\"/assets/$ENTRY_JS\"></script></body></html>" > dist/client/index.html
+          fi
+
       - name: Capacitor Sync
         run: npx cap sync android
 
