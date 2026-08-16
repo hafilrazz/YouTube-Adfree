@@ -3,7 +3,6 @@ import { useEffect, useRef } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { VideoCard } from "@/components/faketube/VideoCard";
@@ -11,13 +10,13 @@ import { searchYouTube } from "@/lib/youtube.functions";
 import { useSearchHistory } from "@/lib/user-data";
 
 const schema = z.object({
-  q: fallback(z.string(), "").default(""),
-  sp: fallback(z.string(), "").default(""), // search params (filters)
+  q: z.string().catch(""),
+  sp: z.string().catch(""), // search params (filters)
 });
 
 
 export const Route = createFileRoute("/search")({
-  validateSearch: zodValidator(schema),
+  validateSearch: schema,
   head: ({ match }) => {
     const q = (match.search as { q?: string })?.q ?? "";
     const title = q ? `${q} — Premium search` : "Search — Premium";
