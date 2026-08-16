@@ -9,8 +9,6 @@ jobs:
   build:
     name: Build Android APK
     runs-on: ubuntu-latest
-    env:
-      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
 
     steps:
       - name: Checkout Source
@@ -32,7 +30,8 @@ jobs:
       - name: Install Android command-line tools and SDK components
         run: |
           set -euo pipefail
-          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT}"
+          # Use the runner-provided temp path
+          export ANDROID_SDK_ROOT="${RUNNER_TEMP}/android-sdk"
           mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
           curl -fSL "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip" -o cmdline.zip
           unzip -q cmdline.zip -d "${ANDROID_SDK_ROOT}/cmdline-tools"
@@ -52,7 +51,8 @@ jobs:
 
       - name: Prepare local.properties for Gradle
         run: |
-          echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
+          # Write the sdk.dir using the runner-provided temp path
+          echo "sdk.dir=${RUNNER_TEMP}/android-sdk" > android/local.properties
 
       - name: Build Android APK
         run: |
