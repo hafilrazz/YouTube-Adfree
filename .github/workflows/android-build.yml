@@ -39,25 +39,37 @@ jobs:
 
       - name: Ensure index.html for Capacitor
         run: |
-          # TanStack Start normally generates dist/client for the browser assets.
-          # We'll ensure dist/client has the index.html Capacitor needs.
-          if [ ! -f dist/client/index.html ]; then
-            # Find the main entry script - in TanStack Start it is usually assets/index-*.js
-            ENTRY_JS=$(find dist/client/assets -name "index-*.js" | head -n 1)
-            if [ -z "$ENTRY_JS" ]; then
-              echo "Error: Could not find entry JS file in dist/client/assets"
-              # Fallback to look for any JS if index-*.js is missing (just in case)
-              ENTRY_JS=$(find dist/client/assets -name "*.js" | head -n 1)
-            fi
-            
-            if [ -n "$ENTRY_JS" ]; then
-              ENTRY_FILE=$(basename "$ENTRY_JS")
-              echo "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>YouTube Premium</title></head><body><div id=\"app\"></div><script type=\"module\" src=\"/assets/$ENTRY_FILE\"></script></body></html>" > dist/client/index.html
-            else
-              echo "Warning: No JS entry found. Creating a blank index.html."
-              echo "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>YouTube Premium</title></head><body><div id=\"app\"></div></body></html>" > dist/client/index.html
-            fi
+          # Create directories if they don't exist
+          mkdir -p dist/client/assets
+
+          # Find the actual index JS file
+          ENTRY_JS=$(find dist/client/assets -name "index-*.js" | head -n 1)
+          if [ -z "$ENTRY_JS" ]; then
+            ENTRY_JS=$(find dist/client/assets -name "*.js" | head -n 1)
           fi
+          
+          ENTRY_FILE=$(basename "$ENTRY_JS")
+          CSS_FILE=$(find dist/client/assets -name "*.css" | head -n 1 | xargs basename)
+
+          echo "Found entry JS: $ENTRY_FILE"
+          echo "Found CSS: $CSS_FILE"
+
+          # Create a functional index.html for Capacitor
+          cat <<EOF > dist/client/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+            <title>YouTube Premium</title>
+            <link rel="stylesheet" href="/assets/$CSS_FILE">
+          </head>
+          <body>
+            <div id="app"></div>
+            <script type="module" src="/assets/$ENTRY_FILE"></script>
+          </body>
+          </html>
+          EOF
 
       - name: Capacitor Sync
         run: npx cap sync android
@@ -66,6 +78,8 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
+          # Ensure local.properties doesn't interfere
+          rm -f local.properties
           ./gradlew assembleRelease
 
       - name: Upload APK as Release Asset
