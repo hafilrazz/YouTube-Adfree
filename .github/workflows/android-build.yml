@@ -43,8 +43,14 @@ jobs:
           # TanStack Start normally generates dist/client for the browser assets.
           # We'll ensure dist/client has the index.html Capacitor needs.
           if [ ! -f dist/client/index.html ]; then
-            ENTRY_JS=$(ls dist/client/assets/index-*.js | head -n 1 | xargs basename)
-            echo "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>YouTube Premium</title></head><body><div id=\"app\"></div><script type=\"module\" src=\"/assets/$ENTRY_JS\"></script></body></html>" > dist/client/index.html
+            # Find the main entry script - in TanStack Start it is usually assets/index-*.js or assets/start-*.js
+            ENTRY_JS=$(find dist/client/assets -name "index-*.js" -o -name "start-*.js" | head -n 1)
+            if [ -z "$ENTRY_JS" ]; then
+              echo "Error: Could not find entry JS file in dist/client/assets"
+              exit 1
+            fi
+            ENTRY_FILE=$(basename $ENTRY_JS)
+            echo "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>YouTube Premium</title></head><body><div id=\"app\"></div><script type=\"module\" src=\"/assets/$ENTRY_FILE\"></script></body></html>" > dist/client/index.html
           fi
 
       - name: Capacitor Sync
