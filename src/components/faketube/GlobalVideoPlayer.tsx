@@ -361,8 +361,8 @@ export function GlobalVideoPlayer() {
     : {};
 
   const handleMiniTap = () => {
-    if (dragState.current?.moved) return;
-    navigate({ to: "/watch/$id", params: { id: current.id } });
+    if (dragState.current?.moved || !current) return;
+    navigate({ to: "/watch/$id", params: { id: current.id }, search: { sp } });
   };
 
   return (
