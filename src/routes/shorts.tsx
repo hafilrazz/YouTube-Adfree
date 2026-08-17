@@ -9,6 +9,9 @@ import { useVideoPlayer } from "@/lib/video-player-context";
 import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/shorts")({
+  validateSearch: z.object({
+    sp: z.string().optional().catch(""),
+  }),
   component: ShortsPage,
   head: () => ({
     meta: [

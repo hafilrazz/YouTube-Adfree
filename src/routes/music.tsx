@@ -7,6 +7,9 @@ import { useMusic, videoToTrack } from "@/lib/music-player";
 import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/music")({
+  validateSearch: z.object({
+    sp: z.string().optional().catch(""),
+  }),
   head: () => ({
     meta: [
       { title: "Music — Premium" },

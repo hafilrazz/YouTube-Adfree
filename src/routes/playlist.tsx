@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { z } from "zod";
 import { ListVideo } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { VideoCard } from "@/components/faketube/VideoCard";
@@ -6,6 +7,9 @@ import { usePlaylist, useVideosByIds } from "@/lib/user-data";
 import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/playlist")({
+  validateSearch: z.object({
+    sp: z.string().optional().catch(""),
+  }),
   head: () => ({
     meta: [
       { title: "My playlist — Premium" },

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
@@ -10,6 +11,9 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/channel/$id")({
+  validateSearch: z.object({
+    sp: z.string().optional().catch(""),
+  }),
   head: ({ params }) => ({
     meta: [
       { title: `Channel — YouTube` },

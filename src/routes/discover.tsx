@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Compass, Loader2, RefreshCw } from "lucide-react";
@@ -7,6 +8,9 @@ import { VideoCard } from "@/components/faketube/VideoCard";
 import { getTrending } from "@/lib/youtube.functions";
 
 export const Route = createFileRoute("/discover")({
+  validateSearch: z.object({
+    sp: z.string().optional().catch(""),
+  }),
   head: () => ({
     meta: [
       { title: "Discover — Premium" },
