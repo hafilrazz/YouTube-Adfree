@@ -1480,7 +1480,7 @@ export const getAudioStream = createServerFn({ method: "GET" })
     };
     
     try {
-      // We try several instances to avoid rate limiting
+      // Primary: Piped
       const s = await piped<{ audioStreams?: AudioStream[]; hls?: string; livestream?: boolean }>(
         `/streams/${encodeURIComponent(data.id)}`,
       );
@@ -1490,32 +1490,60 @@ export const getAudioStream = createServerFn({ method: "GET" })
       }
       
       const streams = (s.audioStreams ?? []).filter((a) => a.url);
-      if (streams.length === 0) {
-        // Fallback to Invidious for stream URL if Piped fails
-        const inv = await invidious<{ formatStreams?: { url: string; container: string }[] }>(
-          `/api/v1/videos/${encodeURIComponent(data.id)}`
-        );
-        const invStream = inv.formatStreams?.find(f => f.container === "m4a" || f.container === "mp4");
-        if (invStream) return { url: invStream.url, mimeType: "audio/mp4" };
-        throw new Error("No audio streams found");
+      if (streams.length > 0) {
+        // Prefer m4a/mp4 (best for mobile background playback)
+        const score = (a: AudioStream) => {
+          const mime = (a.mimeType || a.format || "").toLowerCase();
+          let s = a.bitrate || 0;
+          if (mime.includes("mp4") || mime.includes("m4a")) s += 2_000_000;
+          else if (mime.includes("webm")) s += 500_000;
+          return s;
+        };
+        streams.sort((a, b) => score(b) - score(a));
+        return { url: streams[0].url!, mimeType: streams[0].mimeType || "audio/mp4" };
       }
       
-      // Prefer m4a/mp4 (best for mobile background playback)
-      const score = (a: AudioStream) => {
-        const mime = (a.mimeType || a.format || "").toLowerCase();
-        let s = a.bitrate || 0;
-        if (mime.includes("mp4") || mime.includes("m4a")) s += 2_000_000;
-        else if (mime.includes("webm")) s += 500_000;
-        return s;
-      };
-      
-      streams.sort((a, b) => score(b) - score(a));
-      return { url: streams[0].url!, mimeType: streams[0].mimeType || "audio/mp4" };
+      // Fallback to direct Invidious racing if Piped returns no streams
+      return await raceInvidiousStream(data.id);
     } catch (e) {
-      console.error("Audio stream fetch error:", e);
-      throw new Error(`Audio stream unavailable: ${(e as Error).message}`);
+      // Final fallback: try Invidious even if Piped throws
+      try {
+        return await raceInvidiousStream(data.id);
+      } catch (inner) {
+        console.error("Music stream critical failure:", inner);
+        throw new Error(`Audio stream unavailable: ${(e as Error).message}`);
+      }
     }
   });
+
+// -------- Synthetic stream helper for reliability --------
+async function raceInvidiousStream(id: string): Promise<{ url: string; mimeType: string }> {
+  // Direct Invidious stream extraction as a fallback for Piped failures
+  const attempts = INVIDIOUS_INSTANCES.map(async (base) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+      const res = await fetch(`${base}/api/v1/videos/${encodeURIComponent(id)}`, {
+        headers: { "user-agent": "Mozilla/5.0" },
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error("inv-fail");
+      const j = await res.json();
+      const streams = (j.formatStreams || []).concat(j.adaptiveFormats || []);
+      // Prefer non-dash audio/m4a for widest background compatibility
+      const best = streams.find((s: any) => 
+        (s.container === "m4a" || s.type?.includes("audio/mp4")) && s.url
+      ) || streams.find((s: any) => s.url && s.type?.includes("audio"));
+      
+      if (!best?.url) throw new Error("no-url");
+      return { url: best.url, mimeType: best.type || "audio/mp4" };
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+  return Promise.any(attempts);
+}
+
 
 // ================== Channel Data ==================
 
