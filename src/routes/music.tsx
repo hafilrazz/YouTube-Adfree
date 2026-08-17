@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Trash2, Play, Pause, Music2 } from "lucide-react";
+import { z } from "zod";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { useMusicVideos } from "@/lib/music-videos";
 import { useVideosByIds } from "@/lib/user-data";
