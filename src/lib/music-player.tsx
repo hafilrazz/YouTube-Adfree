@@ -47,14 +47,31 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
+      // Background loop to keep audio context alive
+      const a = audioRef.current;
+      if (a) {
+        a.src = ""; // Clear existing
+        a.load();
+      }
+
       const { url } = await getAudioStream({ data: { id: trackId } });
       if (token !== loadTokenRef.current) return; // superseded
-      const a = audioRef.current;
-      if (!a) return;
-      a.src = url;
-      a.load();
+      
+      const audio = audioRef.current;
+      if (!audio) return;
+      
+      audio.src = url;
+      audio.load();
+      
       if (wantsPlayRef.current) {
-        try { await a.play(); } catch { /* autoplay may need gesture */ }
+        // We use a promise wrapper to handle Safari's strict autoplay
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.warn("Autoplay blocked or failed:", error);
+            setIsPlaying(false);
+          });
+        }
       }
     } catch (e) {
       if (token === loadTokenRef.current) setError((e as Error).message);
@@ -201,7 +218,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         ref={audioRef}
         preload="auto"
         playsInline
-        crossOrigin="anonymous"
         aria-hidden
         style={{ display: "none" }}
       />
