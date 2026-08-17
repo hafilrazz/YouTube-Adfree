@@ -35,7 +35,7 @@ type CaptionTrack = { languageCode: string; languageName?: string; displayName?:
 export function GlobalVideoPlayer() {
   const { current, closeVideo, slotRef, slotVersion } = useVideoPlayer();
   const navigate = useNavigate();
-  const search = useSearch({ from: "__root__" }) as { sp?: string };
+  const search = useSearch({ from: "__root__" }) as any;
   const sp = search.sp || "";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 

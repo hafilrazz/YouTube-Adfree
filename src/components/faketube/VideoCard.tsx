@@ -3,7 +3,7 @@ import type { Video } from "@/lib/faketube-data";
 
 export function VideoCard({ video }: { video: Video }) {
   return (
-    <Link to="/watch/$id" params={{ id: video.id }} search={{ sp: "" }} className="block group">
+    <Link to="/watch/$id" params={{ id: video.id }} search={(prev: any) => ({ ...prev, sp: prev.sp || "" })} className="block group">
       <div className="relative aspect-video overflow-hidden rounded-xl bg-neutral-200">
         <img
           src={video.thumbnail}

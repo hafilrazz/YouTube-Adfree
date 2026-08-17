@@ -11,8 +11,8 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/channel/$id")({
-  validateSearch: z.object({
-    sp: z.string().optional().catch(""),
+  validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
+    sp: typeof search.sp === 'string' ? search.sp : undefined,
   }),
   head: ({ params }) => ({
     meta: [

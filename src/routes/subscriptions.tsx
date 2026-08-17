@@ -10,8 +10,8 @@ import { getSubscriptionsFeed } from "@/lib/youtube.functions";
 import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/subscriptions")({
-  validateSearch: z.object({
-    sp: z.string().optional().catch(""),
+  validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
+    sp: typeof search.sp === 'string' ? search.sp : undefined,
   }),
   head: () => ({
     meta: [

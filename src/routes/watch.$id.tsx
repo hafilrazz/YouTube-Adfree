@@ -14,8 +14,8 @@ import type { Video } from "@/lib/faketube-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/watch/$id")({
-  validateSearch: z.object({
-    sp: z.string().optional().catch(""),
+  validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
+    sp: typeof search.sp === 'string' ? search.sp : undefined,
   }),
   // No loader: navigation is instant and the player mounts immediately from the id.
   // Metadata + related are streamed in via useQuery inside the component.
@@ -230,7 +230,7 @@ function Watch() {
         <aside className="xl:w-96 flex flex-col gap-3 min-w-0">
           <h2 className="font-semibold text-sm text-neutral-700">Up next</h2>
           {related.map((v: Video) => (
-            <Link to="/watch/$id" params={{ id: v.id }} search={{ sp: "" }} key={v.id} className="flex gap-2 group">
+            <Link to="/watch/$id" params={{ id: v.id }} search={(prev: any) => ({ ...prev, sp: prev.sp || "" })} key={v.id} className="flex gap-2 group">
               <div className="relative w-36 sm:w-40 aspect-video rounded-lg overflow-hidden shrink-0 bg-neutral-200">
                 <img src={v.thumbnail} alt={v.title} className="h-full w-full object-cover" />
                 {v.duration ? (

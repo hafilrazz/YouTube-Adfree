@@ -7,8 +7,8 @@ import { useRecent, useVideosByIds } from "@/lib/user-data";
 import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/history")({
-  validateSearch: z.object({
-    sp: z.string().optional().catch(""),
+  validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
+    sp: typeof search.sp === 'string' ? search.sp : undefined,
   }),
   head: () => ({
     meta: [

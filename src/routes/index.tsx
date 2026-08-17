@@ -10,8 +10,8 @@ import { useLikes, useRecent, useSearchHistory, useVideosByIds } from "@/lib/use
 import { z } from "zod";
 
 export const Route = createFileRoute("/")({
-  validateSearch: z.object({
-    sp: z.string().optional().catch(""),
+  validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
+    sp: typeof search.sp === 'string' ? search.sp : undefined,
   }),
   head: () => ({
     meta: [

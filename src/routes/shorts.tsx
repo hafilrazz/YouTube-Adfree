@@ -10,8 +10,8 @@ import type { Video } from "@/lib/faketube-data";
 import { z } from "zod";
 
 export const Route = createFileRoute("/shorts")({
-  validateSearch: z.object({
-    sp: z.string().optional().catch(""),
+  validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
+    sp: typeof search.sp === 'string' ? search.sp : undefined,
   }),
   component: ShortsPage,
   head: () => ({
