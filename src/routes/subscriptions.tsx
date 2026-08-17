@@ -11,7 +11,7 @@ import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/subscriptions")({
   validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
-    sp: typeof search.sp === 'string' ? search.sp : undefined,
+    sp: typeof search.sp === 'string' ? search.sp : "",
   }),
   head: () => ({
     meta: [

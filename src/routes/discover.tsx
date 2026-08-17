@@ -9,7 +9,7 @@ import { getTrending } from "@/lib/youtube.functions";
 
 export const Route = createFileRoute("/discover")({
   validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
-    sp: typeof search.sp === 'string' ? search.sp : undefined,
+    sp: typeof search.sp === 'string' ? search.sp : "",
   }),
   head: () => ({
     meta: [

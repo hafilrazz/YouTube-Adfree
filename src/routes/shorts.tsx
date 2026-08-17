@@ -11,7 +11,7 @@ import { z } from "zod";
 
 export const Route = createFileRoute("/shorts")({
   validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
-    sp: typeof search.sp === 'string' ? search.sp : undefined,
+    sp: typeof search.sp === 'string' ? search.sp : "",
   }),
   component: ShortsPage,
   head: () => ({
