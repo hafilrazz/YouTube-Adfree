@@ -1232,81 +1232,8 @@ export const getVideosByIds = createServerFn({ method: "GET" })
   });
 
 
-// ================== Shorts ==================
+// Shorts functionality removed per request
 
-export const getShorts = createServerFn({ method: "GET" })
-  .inputValidator((d: { q?: string; pageToken?: string; seed?: number }) => ({
-    q: String(d?.q ?? "shorts").slice(0, 80),
-    pageToken: d?.pageToken ? String(d.pageToken) : "",
-    seed: typeof d?.seed === "number" ? d.seed : undefined,
-  }))
-  .handler(async ({ data }): Promise<{ items: Video[]; nextPageToken?: string }> => {
-    // When a seed is provided, we reduce cache time to ensure refresh works
-    const cacheTime = data.seed ? 0 : 300;
-    setResponseHeader("cache-control", `public, max-age=${cacheTime}, s-maxage=900, stale-while-revalidate=3600`);
-
-    const topics = ["shorts", "trending shorts", "viral shorts", "funny shorts", "gaming shorts", "music shorts"];
-    const randomTopic = data.seed ? topics[Math.floor((data.seed * 10) % topics.length)] : topics[0];
-    const query = data.q === "shorts" ? randomTopic : data.q;
-
-
-    // Primary: Piped search, then filter to short-duration videos.
-    try {
-      const path = data.pageToken
-        ? `/nextpage/search?nextpage=${encodeURIComponent(data.pageToken)}&q=${encodeURIComponent(query)}&filter=videos`
-        : `/search?q=${encodeURIComponent(query)}&filter=videos`;
-
-      const res = await piped<{ items?: PipedItem[]; nextpage?: string | null }>(path);
-      const items = (res.items ?? [])
-        .filter((it) => it.isShort || (typeof it.duration === "number" && it.duration > 0 && it.duration <= 60))
-        .map(pipedToVideo)
-        .filter((v): v is Video => Boolean(v))
-        .slice(0, 24);
-      if (items.length) {
-        return { items, nextPageToken: res.nextpage ? String(res.nextpage) : undefined };
-      }
-    } catch (e) {
-      console.warn("Piped shorts search failed:", (e as Error).message);
-    }
-
-    // Secondary: Invidious
-    try {
-      const items = await invidious<InvVideoItem[]>(
-        `/api/v1/search?q=${encodeURIComponent(query)}&type=video&duration=short`,
-      );
-
-      const mapped = items
-        .filter((it) => typeof it.lengthSeconds === "number" && it.lengthSeconds > 0 && it.lengthSeconds <= 60)
-        .map(invToVideo)
-        .filter((v): v is Video => Boolean(v))
-        .slice(0, 24);
-      return { items: mapped };
-    } catch (e) {
-      console.warn("Invidious shorts failed:", (e as Error).message);
-    }
-
-    // Tertiary: YouTube Data API
-    try {
-      const s = await ytFetch<{ items?: YTSearchItem[] }>(
-        `/search?part=snippet&type=video&videoDuration=short&maxResults=24&q=${encodeURIComponent(query)}`,
-      );
-
-      const ids = (s.items ?? []).map((it) => it.id?.videoId).filter((x): x is string => Boolean(x));
-      if (!ids.length) return { items: [] };
-      const d = await ytFetch<{ items?: YTVideoItem[] }>(
-        `/videos?part=snippet,contentDetails,statistics&id=${encodeURIComponent(ids.join(","))}`,
-      );
-      const items = (d.items ?? [])
-        .filter((it) => parseIsoDuration(it.contentDetails?.duration) <= 60)
-        .map(ytVideoToVideo)
-        .filter((v): v is Video => Boolean(v));
-      return { items };
-    } catch (e) {
-      console.warn("YT API shorts failed:", (e as Error).message);
-      return { items: [] };
-    }
-
-  });
 
 // ================== Recommendations from likes + searches ==================
 
