@@ -125,7 +125,7 @@ function Watch() {
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Link to="/channel/$id" params={{ id: video.channelId || "" }} search={(prev: any) => ({ ...prev, sp: prev.sp || "" })} className="flex items-center gap-3 group">
+              <Link to="/channel/$id" params={{ id: video.channelId || "" }} search={{ sp: "" }} className="flex items-center gap-3 group">
                 <img src={video.channelAvatar} className="h-10 w-10 rounded-full object-cover" alt="" />
                 <div className="min-w-0">
                   <p className="font-bold text-base line-clamp-1 group-hover:text-neutral-700 dark:group-hover:text-neutral-300 transition-colors">{video.channel}</p>
