@@ -4,7 +4,7 @@ import { X, Maximize2, Minimize2, Captions, Check } from "lucide-react";
 import { useVideoPlayer } from "@/lib/video-player-context";
 import { getProgress, saveProgress } from "@/lib/user-data";
 import { Capacitor } from "@capacitor/core";
-import { ScreenOrientation, OrientationLockType } from "@capacitor/screen-orientation";
+import { ScreenOrientation } from "@capacitor/screen-orientation";
 import { StatusBar, Style } from "@capacitor/status-bar";
 
 
