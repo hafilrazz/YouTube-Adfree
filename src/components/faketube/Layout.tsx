@@ -278,7 +278,6 @@ function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpe
         { icon: Home, label: "Home", to: "/" as const },
         { icon: Compass, label: "Discover", to: "/discover" as const },
         { icon: Users, label: "Subscriptions", to: "/subscriptions" as const },
-        { icon: PlaySquare, label: "Shorts", to: "/shorts" as const },
       ]
 
     },
