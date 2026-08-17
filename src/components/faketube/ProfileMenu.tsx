@@ -3,9 +3,13 @@ import { User, Check, Plus, Pencil, Trash2, X, Camera, Moon, Sun } from "lucide-
 import { useProfiles, MAX_PROFILES, type Profile } from "@/lib/profiles";
 import { useTheme } from "@/lib/use-theme";
 
+import { useHydrated } from "@/hooks/use-hydrated";
+
 function Avatar({ profile, size = 32 }: { profile: Profile | undefined; size?: number }) {
+  const isHydrated = useHydrated();
   const s = { width: size, height: size };
-  if (profile?.photo) {
+  if (isHydrated && profile?.photo) {
+
     return <img src={profile.photo} alt={profile.name} style={s} className="rounded-full object-cover" />;
   }
   const letter = profile?.name?.[0]?.toUpperCase() ?? "?";

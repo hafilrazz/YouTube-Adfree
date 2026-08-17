@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Users, X } from "lucide-react";
@@ -9,6 +10,9 @@ import { getSubscriptionsFeed } from "@/lib/youtube.functions";
 import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/subscriptions")({
+  validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
+    sp: typeof search.sp === 'string' ? search.sp : "",
+  }),
   head: () => ({
     meta: [
       { title: "Subscriptions — Premium" },

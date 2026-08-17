@@ -7,9 +7,12 @@ import { VideoCard } from "@/components/faketube/VideoCard";
 import type { Video } from "@/lib/faketube-data";
 import { getRecommendedFromLikes } from "@/lib/youtube.functions";
 import { useLikes, useRecent, useSearchHistory, useVideosByIds } from "@/lib/user-data";
-
+import { z } from "zod";
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
+    sp: typeof search.sp === 'string' ? search.sp : "",
+  }),
   head: () => ({
     meta: [
       { title: "YouTube — Recommended videos for you" },

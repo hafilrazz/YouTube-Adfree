@@ -2,13 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, ThumbsUp, ThumbsDown, Share2 } from "lucide-react";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { getShorts } from "@/lib/youtube.functions";
 import { useVideoPlayer } from "@/lib/video-player-context";
 import type { Video } from "@/lib/faketube-data";
+import { z } from "zod";
 
 export const Route = createFileRoute("/shorts")({
+  validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
+    sp: typeof search.sp === 'string' ? search.sp : "",
+  }),
   component: ShortsPage,
   head: () => ({
     meta: [
@@ -154,4 +158,4 @@ function ShortVideoItem({ video, onVisible }: { video: Video; onVisible: () => v
   );
 }
 
-import { ThumbsUp, ThumbsDown, Share2 } from "lucide-react";
+

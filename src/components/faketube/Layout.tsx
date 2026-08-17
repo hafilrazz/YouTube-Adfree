@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -8,6 +8,7 @@ import { CATEGORIES, type Video as VideoT } from "@/lib/faketube-data";
 import { searchYouTube, suggestSearch } from "@/lib/youtube.functions";
 import { ProfileMenu } from "@/components/faketube/ProfileMenu";
 import { useSearchHistory } from "@/lib/user-data";
+import { z } from "zod";
 
 
 export function FakeTubeLayout({ children, activeCategory, onCategoryChange }: {
@@ -120,10 +121,11 @@ function SearchBox() {
 
   useEffect(() => setActive(0), [debounced]);
 
+  const currentSearch = useSearch({ from: "__root__" }) as any;
   const go = (id: string) => {
     setOpen(false);
     setQ("");
-    navigate({ to: "/watch/$id", params: { id } });
+    navigate({ to: "/watch/$id", params: { id }, search: { sp: "" } });
   };
   const runSearch = (term: string) => {
     const t = term.trim();
@@ -328,6 +330,7 @@ function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpe
                   <Link
                     key={label}
                     to={to}
+                    search={{ sp: "" }}
                     onClick={onCloseMobile}
                     className={`flex flex-row items-center gap-6 px-6 py-2 ${desktopLayout} hover:bg-neutral-100 dark:hover:bg-neutral-800 mx-2 rounded-lg`}
                   >

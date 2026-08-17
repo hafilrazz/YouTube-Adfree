@@ -3,6 +3,10 @@ import { useRouterState, useNavigate } from "@tanstack/react-router";
 import { X, Maximize2, Minimize2, Captions, Check } from "lucide-react";
 import { useVideoPlayer } from "@/lib/video-player-context";
 import { getProgress, saveProgress } from "@/lib/user-data";
+import { Capacitor } from "@capacitor/core";
+import { ScreenOrientation } from "@capacitor/screen-orientation";
+import { StatusBar, Style } from "@capacitor/status-bar";
+
 
 // ---- YT iframe API loader ----
 let ytApiPromise: Promise<any> | null = null;
@@ -34,6 +38,7 @@ type CaptionTrack = { languageCode: string; languageName?: string; displayName?:
 export function GlobalVideoPlayer() {
   const { current, closeVideo, slotRef, slotVersion } = useVideoPlayer();
   const navigate = useNavigate();
+  // Unused params removed
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const isWatchRoute = current ? pathname === `/watch/${current.id}` : false;
@@ -203,15 +208,31 @@ export function GlobalVideoPlayer() {
   // Fullscreen handling
   useEffect(() => {
     const onFsChange = async () => {
-      const fs = document.fullscreenElement || (document as any).webkitFullscreenElement;
-      setIsFs(!!fs);
+      const fs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      setIsFs(fs);
+      
       const isMobile = window.matchMedia("(max-width: 767px)").matches;
       if (!isMobile) return;
-      const orientation = (screen as any).orientation;
-      try {
-        if (fs && orientation?.lock) await orientation.lock("landscape");
-        else if (!fs && orientation?.unlock) orientation.unlock();
-      } catch {}
+
+      if (Capacitor.isNativePlatform()) {
+        try {
+          if (fs) {
+            await StatusBar.hide();
+            await ScreenOrientation.lock({ orientation: 'landscape' });
+          } else {
+            await StatusBar.show();
+            await ScreenOrientation.lock({ orientation: 'portrait' });
+          }
+        } catch (err) {
+          console.error("Capacitor orientation/status error:", err);
+        }
+      } else {
+        const orientation = (screen as any).orientation;
+        try {
+          if (fs && orientation?.lock) await orientation.lock("landscape");
+          else if (!fs && orientation?.unlock) orientation.unlock();
+        } catch {}
+      }
     };
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("webkitfullscreenchange", onFsChange as any);
@@ -233,10 +254,15 @@ export function GlobalVideoPlayer() {
         // Fallback for Android WebView where requestFullscreen might not be reliable
         // We ensure we try all variants
         const iframe = el.querySelector("iframe") as any;
+        
+        // On Android Capacitor, regular requestFullscreen on an element might not be enough
+        // to trigger a true native fullscreen. We attempt all web APIs.
         if (el.requestFullscreen) await el.requestFullscreen();
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
         else if (iframe?.webkitEnterFullscreen) iframe.webkitEnterFullscreen();
         else if (iframe?.requestFullscreen) await iframe.requestFullscreen();
+        
+        // If native platform, we already handle status bar and orientation in onFsChange via document listeners.
         
         // If still not in fullscreen (check after a short delay), we might be in a restricted environment
         // The CSS-based :fullscreen styles already handle the "virtual" fullscreen if the browser
@@ -358,8 +384,8 @@ export function GlobalVideoPlayer() {
     : {};
 
   const handleMiniTap = () => {
-    if (dragState.current?.moved) return;
-    navigate({ to: "/watch/$id", params: { id: current.id } });
+    if (dragState.current?.moved || !current) return;
+    navigate({ to: "/watch/$id", params: { id: current.id }, search: { sp: "" } });
   };
 
   return (

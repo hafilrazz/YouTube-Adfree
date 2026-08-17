@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Trash2, Play, Pause, Music2 } from "lucide-react";
+import { z } from "zod";
 import { FakeTubeLayout } from "@/components/faketube/Layout";
 import { useMusicVideos } from "@/lib/music-videos";
 import { useVideosByIds } from "@/lib/user-data";
@@ -7,6 +8,9 @@ import { useMusic, videoToTrack } from "@/lib/music-player";
 import type { Video } from "@/lib/faketube-data";
 
 export const Route = createFileRoute("/music")({
+  validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
+    sp: typeof search.sp === 'string' ? search.sp : "",
+  }),
   head: () => ({
     meta: [
       { title: "Music — Premium" },
