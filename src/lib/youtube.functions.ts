@@ -1475,32 +1475,44 @@ export const getAudioStream = createServerFn({ method: "GET" })
     type AudioStream = {
       url?: string;
       mimeType?: string;
-      codec?: string;
-      quality?: string;
       bitrate?: number;
       format?: string;
     };
+    
     try {
+      // We try several instances to avoid rate limiting
       const s = await piped<{ audioStreams?: AudioStream[]; hls?: string; livestream?: boolean }>(
         `/streams/${encodeURIComponent(data.id)}`,
       );
+      
       if (s.livestream && s.hls) {
         return { url: s.hls, mimeType: "application/x-mpegURL" };
       }
+      
       const streams = (s.audioStreams ?? []).filter((a) => a.url);
-      if (streams.length === 0) throw new Error("No audio streams");
-      // Prefer m4a/mp4 (widely supported on iOS Safari), then highest bitrate.
+      if (streams.length === 0) {
+        // Fallback to Invidious for stream URL if Piped fails
+        const inv = await invidious<{ formatStreams?: { url: string; container: string }[] }>(
+          `/api/v1/videos/${encodeURIComponent(data.id)}`
+        );
+        const invStream = inv.formatStreams?.find(f => f.container === "m4a" || f.container === "mp4");
+        if (invStream) return { url: invStream.url, mimeType: "audio/mp4" };
+        throw new Error("No audio streams found");
+      }
+      
+      // Prefer m4a/mp4 (best for mobile background playback)
       const score = (a: AudioStream) => {
         const mime = (a.mimeType || a.format || "").toLowerCase();
         let s = a.bitrate || 0;
-        if (mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac")) s += 1_000_000;
-        else if (mime.includes("webm") || mime.includes("opus")) s += 500_000;
+        if (mime.includes("mp4") || mime.includes("m4a")) s += 2_000_000;
+        else if (mime.includes("webm")) s += 500_000;
         return s;
       };
+      
       streams.sort((a, b) => score(b) - score(a));
-      const best = streams[0];
-      return { url: best.url!, mimeType: best.mimeType || "audio/mp4" };
+      return { url: streams[0].url!, mimeType: streams[0].mimeType || "audio/mp4" };
     } catch (e) {
+      console.error("Audio stream fetch error:", e);
       throw new Error(`Audio stream unavailable: ${(e as Error).message}`);
     }
   });
