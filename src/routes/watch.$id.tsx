@@ -11,6 +11,7 @@ import { useSubscriptions } from "@/lib/subscriptions";
 import { useVideoPlayer } from "@/lib/video-player-context";
 import { z } from "zod";
 import type { Video } from "@/lib/faketube-data";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/watch/$id")({
   validateSearch: z.object({
@@ -137,11 +138,12 @@ function Watch() {
                   })
                 }
                 disabled={!video.channelId}
-                className={`ml-2 px-4 py-2 rounded-full text-sm font-bold transition-colors disabled:opacity-50 ${
+                className={cn(
+                  "ml-2 px-4 py-2 rounded-full text-sm font-bold transition-colors disabled:opacity-50",
                   subscriptions.isSubscribed(video.channelId ?? "")
                     ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700"
                     : "bg-neutral-900 dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200"
-                }`}
+                )}
               >
                 {subscriptions.isSubscribed(video.channelId ?? "") ? "Subscribed" : "Subscribe"}
               </button>
@@ -153,7 +155,7 @@ function Watch() {
                   onClick={() => likes.toggle(video.id)}
                   className="px-4 py-1.5 flex items-center gap-2 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-l-full text-sm font-medium border-r border-neutral-300 dark:border-neutral-700"
                 >
-                  <ThumbsUp className={`h-5 w-5 ${liked ? "fill-current" : ""}`} />
+                  <ThumbsUp className={cn("h-5 w-5", liked && "fill-current")} />
                   <span>{liked ? "Liked" : "Like"}</span>
                 </button>
                 <button className="px-4 py-1.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-r-full">
@@ -163,9 +165,10 @@ function Watch() {
 
               <button
                 onClick={() => musicVids.toggle(video.id)}
-                className={`rounded-full px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
+                className={cn(
+                  "rounded-full px-4 py-2 text-sm font-medium flex items-center gap-2 transition-colors",
                   inMusic ? "bg-red-600 text-white hover:bg-red-700" : "bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                }`}
+                )}
               >
                 <Music2 className="h-5 w-5" />
                 <span>{inMusic ? "In music" : "Add to music"}</span>
