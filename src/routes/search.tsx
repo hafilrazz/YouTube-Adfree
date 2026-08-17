@@ -9,9 +9,9 @@ import { VideoCard } from "@/components/faketube/VideoCard";
 import { searchYouTube } from "@/lib/youtube.functions";
 import { useSearchHistory } from "@/lib/user-data";
 
-const schema = z.object({
-  q: z.string().catch(""),
-  sp: z.string().catch(""), // search params (filters)
+const schema = (search: Record<string, unknown>): { q: string; sp: string } => ({
+  q: typeof search.q === 'string' ? search.q : '',
+  sp: typeof search.sp === 'string' ? search.sp : '',
 });
 
 
