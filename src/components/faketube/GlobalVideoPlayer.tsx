@@ -35,8 +35,7 @@ type CaptionTrack = { languageCode: string; languageName?: string; displayName?:
 export function GlobalVideoPlayer() {
   const { current, closeVideo, slotRef, slotVersion } = useVideoPlayer();
   const navigate = useNavigate();
-  const search = useSearch({ from: "__root__" }) as any;
-  const sp = search.sp || "";
+  // Unused params removed
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const isWatchRoute = current ? pathname === `/watch/${current.id}` : false;
