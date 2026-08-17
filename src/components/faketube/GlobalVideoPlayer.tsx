@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useRouterState, useNavigate } from "@tanstack/react-router";
+import { useRouterState, useNavigate, useSearch } from "@tanstack/react-router";
 import { X, Maximize2, Minimize2, Captions, Check } from "lucide-react";
 import { useVideoPlayer } from "@/lib/video-player-context";
 import { getProgress, saveProgress } from "@/lib/user-data";
+import { z } from "zod";
 
 // ---- YT iframe API loader ----
 let ytApiPromise: Promise<any> | null = null;
@@ -34,6 +35,8 @@ type CaptionTrack = { languageCode: string; languageName?: string; displayName?:
 export function GlobalVideoPlayer() {
   const { current, closeVideo, slotRef, slotVersion } = useVideoPlayer();
   const navigate = useNavigate();
+  const search = useSearch({ from: "__root" }) as { sp?: string };
+  const sp = search.sp || "";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const isWatchRoute = current ? pathname === `/watch/${current.id}` : false;
