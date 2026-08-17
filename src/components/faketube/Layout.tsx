@@ -129,7 +129,7 @@ function SearchBox() {
     const t = term.trim();
     if (!t) return;
     setOpen(false);
-    navigate({ to: "/search", search: { q: t } });
+    navigate({ to: "/search", search: { q: t, sp: "" } });
   };
   const submitSearch = () => runSearch(q);
 

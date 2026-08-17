@@ -227,18 +227,33 @@ export function GlobalVideoPlayer() {
     if (!el) return;
     const doc = document as any;
     const fs = doc.fullscreenElement || doc.webkitFullscreenElement;
+    
     try {
       if (!fs) {
+        // Fallback for Android WebView where requestFullscreen might not be reliable
+        // We ensure we try all variants
         const iframe = el.querySelector("iframe") as any;
         if (el.requestFullscreen) await el.requestFullscreen();
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
         else if (iframe?.webkitEnterFullscreen) iframe.webkitEnterFullscreen();
         else if (iframe?.requestFullscreen) await iframe.requestFullscreen();
+        
+        // If still not in fullscreen (check after a short delay), we might be in a restricted environment
+        // The CSS-based :fullscreen styles already handle the "virtual" fullscreen if the browser
+        // thinks it is in fullscreen.
       } else {
         if (doc.exitFullscreen) await doc.exitFullscreen();
         else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
       }
-    } catch {}
+    } catch (err) {
+      console.error("Fullscreen toggle failed:", err);
+      // Fallback: manually toggle a class to force fixed full-viewport if API fails
+      if (!fs) {
+        el.classList.add("force-fullscreen");
+      } else {
+        el.classList.remove("force-fullscreen");
+      }
+    }
   };
 
 
