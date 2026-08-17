@@ -121,10 +121,11 @@ function SearchBox() {
 
   useEffect(() => setActive(0), [debounced]);
 
+  const currentSearch = useSearch({ from: "__root__" }) as any;
   const go = (id: string) => {
     setOpen(false);
     setQ("");
-    navigate({ to: "/watch/$id", params: { id }, search: { sp: "" } });
+    navigate({ to: "/watch/$id", params: { id }, search: { sp: currentSearch.sp || "" } });
   };
   const runSearch = (term: string) => {
     const t = term.trim();
