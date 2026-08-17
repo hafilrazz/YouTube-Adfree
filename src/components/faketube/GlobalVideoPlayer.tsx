@@ -3,7 +3,7 @@ import { useRouterState, useNavigate, useSearch } from "@tanstack/react-router";
 import { X, Maximize2, Minimize2, Captions, Check } from "lucide-react";
 import { useVideoPlayer } from "@/lib/video-player-context";
 import { getProgress, saveProgress } from "@/lib/user-data";
-import { z } from "zod";
+
 
 // ---- YT iframe API loader ----
 let ytApiPromise: Promise<any> | null = null;
