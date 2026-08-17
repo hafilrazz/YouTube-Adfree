@@ -4,7 +4,7 @@ import { X, Maximize2, Minimize2, Captions, Check } from "lucide-react";
 import { useVideoPlayer } from "@/lib/video-player-context";
 import { getProgress, saveProgress } from "@/lib/user-data";
 import { Capacitor } from "@capacitor/core";
-import { ScreenOrientation, OrientationType } from "@capacitor/screen-orientation";
+import { ScreenOrientation, OrientationLockType } from "@capacitor/screen-orientation";
 import { StatusBar, Style } from "@capacitor/status-bar";
 
 
@@ -218,10 +218,10 @@ export function GlobalVideoPlayer() {
         try {
           if (fs) {
             await StatusBar.hide();
-            await ScreenOrientation.lock({ orientation: OrientationType.LANDSCAPE });
+            await ScreenOrientation.lock({ orientation: OrientationLockType.LANDSCAPE });
           } else {
             await StatusBar.show();
-            await ScreenOrientation.lock({ orientation: OrientationType.PORTRAIT });
+            await ScreenOrientation.lock({ orientation: OrientationLockType.PORTRAIT });
           }
         } catch (err) {
           console.error("Capacitor orientation/status error:", err);
