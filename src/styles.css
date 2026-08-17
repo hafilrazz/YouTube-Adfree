@@ -265,3 +265,21 @@ video:-webkit-full-screen {
   display: block !important;
 }
 
+/* Fallback for when requestFullscreen fails but we want to fill the screen */
+.force-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  z-index: 2147483647 !important;
+  background: #000 !important;
+  border-radius: 0 !important;
+}
+
+.force-fullscreen iframe {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+

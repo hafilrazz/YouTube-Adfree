@@ -8,7 +8,14 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     url: 'https://ytclone2.lovable.app',
     cleartext: false,
-  }
+    allowNavigation: [
+      '*.youtube.com',
+      '*.googlevideo.com',
+      '*.ytimg.com',
+      'ytclone2.lovable.app'
+    ]
+  },
+  backgroundColor: '#000000'
 };
 
 export default config;
