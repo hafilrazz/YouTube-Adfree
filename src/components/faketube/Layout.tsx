@@ -330,7 +330,7 @@ function Sidebar({ open, mobileOpen, onCloseMobile }: { open: boolean; mobileOpe
                   <Link
                     key={label}
                     to={to}
-                    search={{ sp: (useSearch({ from: "__root__" }) as any).sp || "" }}
+                    search={(prev: any) => ({ ...prev, sp: prev.sp || "" })}
                     onClick={onCloseMobile}
                     className={`flex flex-row items-center gap-6 px-6 py-2 ${desktopLayout} hover:bg-neutral-100 dark:hover:bg-neutral-800 mx-2 rounded-lg`}
                   >
