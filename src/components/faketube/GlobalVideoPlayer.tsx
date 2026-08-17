@@ -218,10 +218,10 @@ export function GlobalVideoPlayer() {
         try {
           if (fs) {
             await StatusBar.hide();
-            await ScreenOrientation.lock({ orientation: OrientationLockType.LANDSCAPE });
+            await ScreenOrientation.lock({ orientation: 'landscape' });
           } else {
             await StatusBar.show();
-            await ScreenOrientation.lock({ orientation: OrientationLockType.PORTRAIT });
+            await ScreenOrientation.lock({ orientation: 'portrait' });
           }
         } catch (err) {
           console.error("Capacitor orientation/status error:", err);
