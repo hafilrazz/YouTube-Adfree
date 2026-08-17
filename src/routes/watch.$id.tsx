@@ -1,4 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Capacitor } from "@capacitor/core";
+import { ScreenOrientation } from "@capacitor/screen-orientation";
+import { StatusBar } from "@capacitor/status-bar";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -86,6 +89,23 @@ function Watch() {
 
   const searchParams = Route.useSearch();
   const sp = searchParams.sp || "";
+
+  // Auto-landscape when entering watch page on mobile native platform
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const isMobile = window.matchMedia("(max-width: 767px)").matches;
+      if (isMobile) {
+        ScreenOrientation.lock({ orientation: "landscape" }).catch(console.error);
+        StatusBar.hide().catch(console.error);
+      }
+    }
+    return () => {
+      if (Capacitor.isNativePlatform()) {
+        ScreenOrientation.lock({ orientation: "portrait" }).catch(console.error);
+        StatusBar.show().catch(console.error);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Regular watch page video - ensure isShort is false to enable PiP
