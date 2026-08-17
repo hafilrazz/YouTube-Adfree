@@ -123,7 +123,7 @@ function SearchBox() {
   const go = (id: string) => {
     setOpen(false);
     setQ("");
-    navigate({ to: "/watch/$id", params: { id } });
+    navigate({ to: "/watch/$id", params: { id }, search: { sp: "" } });
   };
   const runSearch = (term: string) => {
     const t = term.trim();
