@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/watch/$id")({
   validateSearch: (search: Record<string, unknown>): { sp?: string } => ({
-    sp: typeof search.sp === 'string' ? search.sp : undefined,
+    sp: typeof search.sp === 'string' ? search.sp : "",
   }),
   // No loader: navigation is instant and the player mounts immediately from the id.
   // Metadata + related are streamed in via useQuery inside the component.
